@@ -384,7 +384,7 @@
 
         // 连接巴法云WebSocket
         function connectWebSocket() {
-            const wsUrl = `wss://bemfa.com:8084/ws/${BEMFA_UID}/`;
+            const wsUrl = `wss://bemfa.com:9504/wss/${BEMFA_UID}`;
             
             ws = new WebSocket(wsUrl);
             

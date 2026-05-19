@@ -166,14 +166,6 @@
             transform: scale(1.05);
         }
 
-        .btn-active {
-            background: #4CAF50;
-        }
-
-        .btn-inactive {
-            background: #9e9e9e;
-        }
-
         .log-section {
             background: white;
             border-radius: 20px;
@@ -222,16 +214,6 @@
             font-size: 0.8rem;
             opacity: 0.8;
         }
-
-        @media (max-width: 768px) {
-            .sensor-value {
-                font-size: 1.8rem;
-            }
-            .btn {
-                padding: 12px 30px;
-                font-size: 1rem;
-            }
-        }
     </style>
 </head>
 <body>
@@ -242,7 +224,7 @@
             <div class="connection-status">
                 <div class="status-badge">
                     <div id="statusLed" class="led-green"></div>
-                    <span id="statusText" style="color: #333;">连接中...</span>
+                    <span id="statusText" style="color: #333;">已连接</span>
                 </div>
                 <div class="status-badge">
                     📱 设备: ESP32
@@ -331,12 +313,12 @@
             </div>
         </div>
         <div class="refresh-info">
-            🔄 数据每2秒自动刷新 | 基于巴法云MQTT物联网平台
+            🔄 数据实时推送 | 基于巴法云MQTT物联网平台
         </div>
     </div>
 
     <script>
-        // ==================== 配置信息 ====================
+        // 配置
         const BEMFA_UID = "2426cc5615e7463ba3d4ec3640ef2c49";
         const TOPICS = {
             temp: "temp002",
@@ -347,7 +329,7 @@
             alarm: "alarm002"
         };
 
-        // 当前设备状态
+        // 状态
         let currentState = {
             light: false,
             relay: false,
@@ -357,6 +339,10 @@
             pir: 0
         };
 
+        // WebSocket连接
+        let ws = null;
+        let wsConnected = false;
+
         // 添加日志
         function addLog(message) {
             const logDiv = document.getElementById('logContent');
@@ -365,8 +351,6 @@
             const time = new Date().toLocaleTimeString();
             entry.innerHTML = `[${time}] ${message}`;
             logDiv.insertBefore(entry, logDiv.firstChild);
-            
-            // 限制日志数量
             while(logDiv.children.length > 50) {
                 logDiv.removeChild(logDiv.lastChild);
             }
@@ -379,7 +363,7 @@
             addLog('日志已清空');
         }
 
-        // 更新UI显示
+        // 更新UI
         function updateUI() {
             document.getElementById('temperature').textContent = 
                 currentState.temperature !== null ? currentState.temperature.toFixed(1) : '--';
@@ -395,143 +379,122 @@
             document.getElementById('alarmStatus').textContent = 
                 currentState.alarm ? '鸣响中 🔊' : '静音 🔇';
             
-            document.getElementById('updateTime').textContent = 
-                new Date().toLocaleTimeString();
+            document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
         }
 
-        // 从巴法云获取数据
-        async function fetchData(topic) {
-            try {
-                const url = `http://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}`;
-                const response = await fetch(url);
-                const data = await response.text();
-                return data.trim();
-            } catch (error) {
-                console.error(`获取${topic}失败:`, error);
-                return null;
-            }
+        // 连接巴法云WebSocket
+        function connectWebSocket() {
+            const wsUrl = `wss://bemfa.com:8084/ws/${BEMFA_UID}/`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                wsConnected = true;
+                addLog('✅ WebSocket已连接，等待数据推送');
+                document.getElementById('statusText').textContent = '已连接';
+                document.getElementById('statusLed').className = 'led-green';
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    // 处理各主题数据
+                    if (data.topic === TOPICS.temp && data.msg) {
+                        currentState.temperature = parseFloat(data.msg);
+                        updateUI();
+                    }
+                    if (data.topic === TOPICS.humi && data.msg) {
+                        currentState.humidity = parseFloat(data.msg);
+                        updateUI();
+                    }
+                    if (data.topic === TOPICS.pir && data.msg) {
+                        currentState.pir = parseInt(data.msg) || 0;
+                        updateUI();
+                        if (currentState.pir === 1) {
+                            addLog(`👤 检测到人体移动`);
+                        }
+                    }
+                    if (data.topic === TOPICS.light && data.msg) {
+                        currentState.light = (data.msg === 'on' || data.msg === '1');
+                        updateUI();
+                        addLog(`📥 LED状态更新: ${currentState.light ? '开' : '关'}`);
+                    }
+                    if (data.topic === TOPICS.relay && data.msg) {
+                        currentState.relay = (data.msg === 'on' || data.msg === '1');
+                        updateUI();
+                        addLog(`📥 继电器状态更新: ${currentState.relay ? '开' : '关'}`);
+                    }
+                    if (data.topic === TOPICS.alarm && data.msg) {
+                        currentState.alarm = (data.msg === 'on' || data.msg === '1');
+                        updateUI();
+                        addLog(`📥 蜂鸣器状态更新: ${currentState.alarm ? '开' : '关'}`);
+                    }
+                    
+                    // 温度告警
+                    if (currentState.temperature !== null && currentState.temperature > 30) {
+                        addLog(`⚠️ 高温告警！当前温度: ${currentState.temperature.toFixed(1)}°C`);
+                    }
+                } catch(e) {
+                    // 非JSON数据，忽略
+                }
+            };
+            
+            ws.onerror = function(error) {
+                addLog(`❌ WebSocket错误，尝试重连...`);
+                wsConnected = false;
+                document.getElementById('statusText').textContent = '重连中';
+                document.getElementById('statusLed').className = 'led-red';
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onclose = function() {
+                if (wsConnected) {
+                    addLog(`⚠️ WebSocket断开，尝试重连...`);
+                }
+                wsConnected = false;
+                document.getElementById('statusText').textContent = '重连中';
+                document.getElementById('statusLed').className = 'led-red';
+                setTimeout(connectWebSocket, 3000);
+            };
         }
 
-        // 获取所有传感器数据
-        async function fetchAllData() {
-            try {
-                // 获取温度
-                const temp = await fetchData(TOPICS.temp);
-                if (temp !== null && !isNaN(parseFloat(temp))) {
-                    currentState.temperature = parseFloat(temp);
-                }
-                
-                // 获取湿度
-                const humi = await fetchData(TOPICS.humi);
-                if (humi !== null && !isNaN(parseFloat(humi))) {
-                    currentState.humidity = parseFloat(humi);
-                }
-                
-                // 获取人体红外
-                const pir = await fetchData(TOPICS.pir);
-                if (pir !== null) {
-                    currentState.pir = parseInt(pir) || 0;
-                }
-                
-                // 获取LED状态
-                const light = await fetchData(TOPICS.light);
-                if (light !== null) {
-                    currentState.light = (light === 'on' || light === '1' || light === 'ON');
-                }
-                
-                // 获取继电器状态
-                const relay = await fetchData(TOPICS.relay);
-                if (relay !== null) {
-                    currentState.relay = (relay === 'on' || relay === '1' || relay === 'ON');
-                }
-                
-                // 获取蜂鸣器状态
-                const alarm = await fetchData(TOPICS.alarm);
-                if (alarm !== null) {
-                    currentState.alarm = (alarm === 'on' || alarm === '1' || alarm === 'ON');
-                }
-                
-                updateUI();
-                updateConnectionStatus(true);
-                
-                // 温度告警
-                if (currentState.temperature !== null && currentState.temperature > 30) {
-                    addLog(`⚠️ 高温告警！当前温度: ${currentState.temperature.toFixed(1)}°C`);
-                } else if (currentState.temperature !== null && currentState.temperature > 28) {
-                    addLog(`📈 温度偏高: ${currentState.temperature.toFixed(1)}°C`);
-                }
-                
-                // 人体检测告警
-                if (currentState.pir === 1) {
-                    // 可选：添加日志，避免过多日志
-                    // addLog(`👤 检测到人体移动`);
-                }
-                
-            } catch (error) {
-                console.error('获取数据失败:', error);
-                updateConnectionStatus(false);
-                addLog(`❌ 数据获取失败: ${error.message}`);
-            }
-        }
-
-        // 控制设备
+        // 控制设备（通过HTTP API发送）
         async function controlDevice(topic, command) {
             try {
                 addLog(`📤 发送指令: ${topic} -> ${command}`);
                 
-                const url = `http://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}`;
-                const response = await fetch(url, { method: 'POST' });
-                const result = await response.text();
+                const url = `https://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}`;
+                const response = await fetch(url, { 
+                    method: 'POST',
+                    mode: 'no-cors'  // 避免跨域问题
+                });
                 
-                if (result === 'ok' || result.includes('success')) {
-                    addLog(`✅ 指令发送成功: ${topic} 已${command === 'on' ? '开启' : '关闭'}`);
-                    
-                    // 立即更新本地状态
-                    if (topic === TOPICS.light) currentState.light = (command === 'on');
-                    if (topic === TOPICS.relay) currentState.relay = (command === 'on');
-                    if (topic === TOPICS.alarm) currentState.alarm = (command === 'on');
+                addLog(`✅ 指令已发送: ${topic} 已${command === 'on' ? '开启' : '关闭'}`);
+                
+                // 立即更新本地状态（乐观更新）
+                if (topic === TOPICS.light) {
+                    currentState.light = (command === 'on');
                     updateUI();
-                    
-                    // 延迟后重新获取确认状态
-                    setTimeout(() => fetchAllData(), 500);
-                } else {
-                    addLog(`❌ 指令发送失败: ${result}`);
                 }
+                if (topic === TOPICS.relay) {
+                    currentState.relay = (command === 'on');
+                    updateUI();
+                }
+                if (topic === TOPICS.alarm) {
+                    currentState.alarm = (command === 'on');
+                    updateUI();
+                }
+                
             } catch (error) {
-                console.error('控制设备失败:', error);
                 addLog(`❌ 网络错误: ${error.message}`);
             }
         }
 
-        // 更新连接状态显示
-        function updateConnectionStatus(connected) {
-            const led = document.getElementById('statusLed');
-            const text = document.getElementById('statusText');
-            
-            if (connected) {
-                led.className = 'led-green';
-                text.textContent = '✅ 在线';
-                text.style.color = '#4CAF50';
-            } else {
-                led.className = 'led-red';
-                text.textContent = '⚠️ 离线';
-                text.style.color = '#f44336';
-            }
-        }
-
-        // 页面加载时初始化
+        // 初始化
         document.addEventListener('DOMContentLoaded', () => {
-            addLog('🌐 网页已加载，开始获取设备数据...');
-            addLog(`📡 巴法云UID: ${BEMFA_UID}`);
-            
-            // 立即获取一次数据
-            fetchAllData();
-            
-            // 每2秒自动刷新数据
-            setInterval(fetchAllData, 2000);
-            
-            // 更新连接状态为在线（API能调通即为在线）
-            updateConnectionStatus(true);
+            addLog(`🌐 网页已加载，UID: ${BEMFA_UID}`);
+            addLog(`📡 连接巴法云WebSocket...`);
+            connectWebSocket();
         });
     </script>
 </body>

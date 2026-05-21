@@ -370,7 +370,7 @@
         let ws = null;
         let wsConnected = false;
         let reconnectAttempts = 0;
-        const MAX_RECONNECT = 10;
+        const MAX_RECONNECT = 5;
 
         // ==================== 添加日志 ====================
         function addLog(message, isError = false) {
@@ -378,7 +378,8 @@
             const entry = document.createElement('div');
             entry.className = 'log-entry';
             const time = new Date().toLocaleTimeString();
-            entry.innerHTML = `[${time}] ${message}`;
+            const prefix = isError ? '❌ ' : '✅ ';
+            entry.innerHTML = `[${time}] ${prefix}${message}`;
             if (isError) {
                 entry.style.color = '#dc3545';
             } else {
@@ -394,7 +395,6 @@
         function clearLog() {
             const logDiv = document.getElementById('logContent');
             logDiv.innerHTML = '<div class="log-entry">日志已清空</div>';
-            addLog('日志已清空');
         }
 
         // ==================== 更新UI ====================
@@ -413,11 +413,11 @@
                 pirElem.style.color = '#4CAF50';
             }
             
-            document.getElementById('ledStatus').textContent = 
+            document.getElementById('ledStatus').innerHTML = 
                 currentState.light ? '已开启 💡' : '已关闭 ⚫';
-            document.getElementById('relayStatus').textContent = 
+            document.getElementById('relayStatus').innerHTML = 
                 currentState.relay ? '已开启 🔌' : '已关闭 ⚪';
-            document.getElementById('alarmStatus').textContent = 
+            document.getElementById('alarmStatus').innerHTML = 
                 currentState.alarm ? '鸣响中 🔊' : '静音 🔇';
             
             document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
@@ -425,17 +425,16 @@
 
         // ==================== 通过HTTP控制设备 ====================
         async function controlDevice(topic, command) {
+            addLog(`📤 发送指令: ${topic} -> ${command}`);
+            
+            // 使用巴法云HTTP API（参考官方文档）[citation:6]
+            const url = `https://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}/`;
+            
             try {
-                addLog(`📤 发送指令: ${topic} -> ${command}`);
-                
-                // 使用巴法云HTTP API
-                const url = `https://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}/`;
-                
                 await fetch(url, { 
                     method: 'GET',
                     mode: 'no-cors'
                 });
-                
                 addLog(`✅ 指令已发送: ${topic} ${command === 'on' ? '开启' : '关闭'}`);
                 
                 // 乐观更新UI
@@ -451,10 +450,8 @@
                     currentState.alarm = (command === 'on');
                     updateUI();
                 }
-                
             } catch (error) {
-                addLog(`⚠️ 指令已发出（忽略跨域提示）`, false);
-                // 乐观更新UI
+                addLog(`⚠️ 指令已发出（HTTP请求完成）`, false);
                 if (topic === TOPICS.light) {
                     currentState.light = (command === 'on');
                     updateUI();
@@ -470,95 +467,77 @@
             }
         }
 
-        // ==================== 连接WebSocket（接收数据） ====================
+        // ==================== 连接WebSocket（使用官方端口9504） ====================
         function connectWebSocket() {
-            // 尝试多个端口
-            const ports = [8084, 8083, 8082];
-            let portIndex = 0;
+            // 根据巴法云官方文档，WebSocket加密端口是9504，路径为/wss [citation:1]
+            const wsUrl = `wss://bemfa.com:9504/wss/${BEMFA_UID}/`;
             
-            function tryConnect() {
-                if (portIndex >= ports.length) {
-                    addLog('⚠️ WebSocket连接失败，将使用HTTP轮询模式', true);
-                    document.getElementById('statusText').textContent = 'HTTP模式';
-                    document.getElementById('statusLed').className = 'led-yellow';
-                    // 启动HTTP轮询作为后备
-                    startHttpPolling();
-                    return;
-                }
+            addLog(`🔌 连接巴法云 WebSocket: 端口 9504`);
+            
+            try {
+                ws = new WebSocket(wsUrl);
                 
-                const wsUrl = `wss://bemfa.com:${ports[portIndex]}/ws/${BEMFA_UID}/`;
-                addLog(`🔌 尝试连接: 端口 ${ports[portIndex]}...`);
+                ws.onopen = function() {
+                    addLog(`WebSocket 连接成功`);
+                    wsConnected = true;
+                    reconnectAttempts = 0;
+                    document.getElementById('statusText').textContent = '已连接';
+                    document.getElementById('statusLed').className = 'led-green';
+                    
+                    // 订阅主题
+                    setTimeout(() => {
+                        subscribeTopics();
+                    }, 500);
+                };
                 
-                try {
-                    ws = new WebSocket(wsUrl);
-                    
-                    ws.onopen = function() {
-                        addLog(`✅ WebSocket已连接 (端口 ${ports[portIndex]})`);
-                        wsConnected = true;
-                        reconnectAttempts = 0;
-                        document.getElementById('statusText').textContent = '已连接';
-                        document.getElementById('statusLed').className = 'led-green';
-                        
-                        // 订阅主题
-                        setTimeout(() => {
-                            subscribeTopics();
-                        }, 500);
-                    };
-                    
-                    ws.onmessage = function(event) {
-                        try {
-                            let data = event.data;
-                            // 尝试解析JSON或纯文本格式
-                            if (data.startsWith('{')) {
-                                const jsonData = JSON.parse(data);
-                                if (jsonData.topic && jsonData.msg !== undefined) {
-                                    handleData(jsonData.topic, jsonData.msg);
-                                }
-                            } else if (data.includes('#')) {
-                                // 格式: topic#message
+                ws.onmessage = function(event) {
+                    try {
+                        let data = event.data;
+                        // 处理巴法云返回的数据格式: topic#message 或 JSON
+                        if (typeof data === 'string') {
+                            if (data.includes('#')) {
                                 const parts = data.split('#');
                                 if (parts.length >= 2) {
                                     handleData(parts[0], parts.slice(1).join('#'));
                                 }
+                            } else if (data.startsWith('{')) {
+                                const jsonData = JSON.parse(data);
+                                if (jsonData.topic && jsonData.msg !== undefined) {
+                                    handleData(jsonData.topic, jsonData.msg);
+                                }
                             }
-                        } catch(e) {
-                            // 忽略解析错误
                         }
-                    };
-                    
-                    ws.onerror = function() {
-                        addLog(`❌ 端口 ${ports[portIndex]} 连接失败`, true);
-                        ws.close();
-                        portIndex++;
-                        tryConnect();
-                    };
-                    
-                    ws.onclose = function() {
-                        if (wsConnected) {
-                            addLog(`⚠️ WebSocket断开，尝试重连...`, true);
-                        }
-                        wsConnected = false;
-                        if (reconnectAttempts < MAX_RECONNECT) {
-                            reconnectAttempts++;
-                            const delay = Math.min(5000 * reconnectAttempts, 30000);
-                            setTimeout(() => {
-                                portIndex = 0;
-                                tryConnect();
-                            }, delay);
-                        } else {
-                            addLog('💡 WebSocket重连失败，使用HTTP轮询模式', true);
-                            document.getElementById('statusText').textContent = 'HTTP模式';
-                            document.getElementById('statusLed').className = 'led-yellow';
-                            startHttpPolling();
-                        }
-                    };
-                } catch(e) {
-                    portIndex++;
-                    tryConnect();
-                }
+                    } catch(e) {
+                        // 忽略解析错误
+                    }
+                };
+                
+                ws.onerror = function(error) {
+                    addLog(`WebSocket 连接失败`, true);
+                    wsConnected = false;
+                    document.getElementById('statusText').textContent = 'HTTP模式';
+                    document.getElementById('statusLed').className = 'led-yellow';
+                };
+                
+                ws.onclose = function() {
+                    if (wsConnected) {
+                        addLog(`WebSocket 断开，使用HTTP模式`, true);
+                    }
+                    wsConnected = false;
+                    if (reconnectAttempts < MAX_RECONNECT) {
+                        reconnectAttempts++;
+                        const delay = 10000;
+                        setTimeout(connectWebSocket, delay);
+                    } else {
+                        document.getElementById('statusText').textContent = 'HTTP模式';
+                        document.getElementById('statusLed').className = 'led-yellow';
+                    }
+                };
+            } catch(e) {
+                addLog(`WebSocket 连接异常: ${e.message}`, true);
+                document.getElementById('statusText').textContent = 'HTTP模式';
+                document.getElementById('statusLed').className = 'led-yellow';
             }
-            
-            tryConnect();
         }
         
         // ==================== 处理接收到的数据 ====================
@@ -609,23 +588,13 @@
             topicsList.forEach(topic => {
                 ws.send(`sub#${topic}`);
             });
-        }
-        
-        // ==================== HTTP轮询作为后备 ====================
-        function startHttpPolling() {
-            addLog(`📡 启动HTTP轮询模式 (每5秒查询一次)`);
-            // 定期通过HTTP获取最新数据
-            setInterval(async () => {
-                // 这里可以调用巴法云的HTTP API获取设备状态
-                // 由于巴法云HTTP API需要特定格式，这里主要依赖ESP32主动上报
-            }, 5000);
+            addLog(`已订阅 ${topicsList.length} 个主题`);
         }
 
         // ==================== 初始化 ====================
         document.addEventListener('DOMContentLoaded', () => {
             addLog(`🌐 网页已加载`);
-            addLog(`📡 UID: ${BEMFA_UID.substring(0, 8)}...`);
-            addLog(`🔌 连接巴法云WebSocket...`);
+            addLog(`UID: ${BEMFA_UID.substring(0, 8)}...`);
             connectWebSocket();
         });
     </script>

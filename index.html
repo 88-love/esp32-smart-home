@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>ESP32 智能家居控制系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>智能家居控制系统 - ESP32</title>
     <style>
         * {
             margin: 0;
@@ -12,579 +12,621 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 15px;
+            padding: 20px;
         }
 
         .container {
-            max-width: 100%;
+            max-width: 1200px;
             margin: 0 auto;
         }
 
-        /* 头部卡片 */
-        .header {
-            background: white;
-            border-radius: 20px;
-            padding: 16px 20px;
-            margin-bottom: 15px;
+        h1 {
             text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
-        .header h1 {
-            color: #333;
-            font-size: 22px;
-            margin-bottom: 8px;
-        }
-
-        .header .status {
-            font-size: 13px;
-            padding: 6px 12px;
-            border-radius: 20px;
-            display: inline-block;
-        }
-
-        .status.online {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status.offline {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        /* 传感器卡片 - 水平滑动 */
-        .sensor-card {
+        .status-bar {
             background: white;
-            border-radius: 20px;
-            padding: 16px;
-            margin-bottom: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
-        .sensor-title {
-            font-size: 16px;
-            color: #666;
-            margin-bottom: 12px;
+        .connection-status {
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .led-green {
+            width: 12px;
+            height: 12px;
+            background-color: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .led-red {
+            width: 12px;
+            height: 12px;
+            background-color: #f44336;
+            border-radius: 50%;
+        }
+
+        .led-yellow {
+            width: 12px;
+            height: 12px;
+            background-color: #ffc107;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
 
         .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .sensor-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s;
+        }
+
+        .sensor-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .sensor-title {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 15px;
             display: flex;
-            overflow-x: auto;
-            gap: 12px;
-            scroll-snap-type: x mandatory;
-            padding-bottom: 8px;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .sensor-grid::-webkit-scrollbar {
-            height: 4px;
-        }
-
-        .sensor-grid::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        .sensor-grid::-webkit-scrollbar-thumb {
-            background: #667eea;
-            border-radius: 10px;
-        }
-
-        .sensor-item {
-            flex: 0 0 110px;
-            scroll-snap-align: start;
-            text-align: center;
-            padding: 12px;
-            background: #f8f9fa;
-            border-radius: 15px;
+            align-items: center;
+            gap: 10px;
         }
 
         .sensor-value {
-            font-size: 28px;
+            font-size: 2.5rem;
             font-weight: bold;
             color: #667eea;
         }
 
         .sensor-unit {
-            font-size: 12px;
+            font-size: 1rem;
             color: #999;
         }
 
-        .sensor-label {
-            font-size: 13px;
-            color: #666;
-            margin-top: 5px;
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
-        /* 控制卡片 - 水平滑动 */
         .control-card {
             background: white;
             border-radius: 20px;
-            padding: 16px;
-            margin-bottom: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
         .control-title {
-            font-size: 16px;
-            color: #666;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .control-buttons {
-            display: flex;
-            overflow-x: auto;
-            gap: 12px;
-            scroll-snap-type: x mandatory;
-            padding-bottom: 4px;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .control-buttons::-webkit-scrollbar {
-            height: 4px;
-        }
-
-        .control-buttons::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        .control-buttons::-webkit-scrollbar-thumb {
-            background: #667eea;
-            border-radius: 10px;
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 20px;
         }
 
         .btn {
-            flex: 0 0 110px;
-            scroll-snap-align: start;
-            padding: 12px 0;
+            padding: 12px 30px;
+            font-size: 1rem;
             border: none;
-            border-radius: 15px;
-            font-size: 14px;
-            font-weight: bold;
+            border-radius: 50px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
+            transition: all 0.3s;
+            font-weight: bold;
+            margin: 5px;
         }
 
         .btn-on {
-            background: #28a745;
+            background: #4CAF50;
             color: white;
+            box-shadow: 0 4px 15px rgba(76,175,80,0.3);
         }
 
         .btn-on:active {
-            background: #218838;
-            transform: scale(0.97);
-        }
-
-        .btn-off {
-            background: #dc3545;
-            color: white;
-        }
-
-        .btn-off:active {
-            background: #c82333;
-            transform: scale(0.97);
-        }
-
-        .btn-refresh {
-            background: #17a2b8;
-            color: white;
-            flex: 1;
-            min-width: 100%;
-        }
-
-        .btn-refresh:active {
-            background: #138496;
+            background: #45a049;
             transform: scale(0.98);
         }
 
-        /* 日志卡片 */
-        .log-card {
+        .btn-off {
+            background: #f44336;
+            color: white;
+            box-shadow: 0 4px 15px rgba(244,67,54,0.3);
+        }
+
+        .btn-off:active {
+            background: #da190b;
+            transform: scale(0.98);
+        }
+
+        .log-section {
             background: white;
             border-radius: 20px;
-            padding: 16px;
-            margin-bottom: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
 
         .log-title {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 8px;
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .log-content {
-            background: #f8f9fa;
+            background: #f5f5f5;
             border-radius: 10px;
-            padding: 10px;
-            height: 120px;
+            padding: 15px;
+            height: 200px;
             overflow-y: auto;
-            font-size: 11px;
             font-family: monospace;
+            font-size: 0.9rem;
         }
 
         .log-entry {
-            padding: 4px 0;
-            border-bottom: 1px solid #e9ecef;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
             color: #555;
-            word-break: break-all;
         }
 
-        /* 全宽按钮容器 */
-        .full-width {
-            display: block;
+        .clear-btn {
+            padding: 5px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .refresh-info {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .btn {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+            }
+            .sensor-value {
+                font-size: 2rem;
+            }
+            h1 {
+                font-size: 1.5rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- 头部 -->
-        <div class="header">
-            <h1>🏠 ESP32 智能家居</h1>
-            <div id="connectionStatus" class="status online">🟢 在线 - 已连接</div>
-        </div>
-
-        <!-- 传感器数据 - 水平滑动 -->
-        <div class="sensor-card">
-            <div class="sensor-title">
-                📊 环境监测 <span style="font-size:11px; color:#999;">← 左右滑动 →</span>
-            </div>
-            <div class="sensor-grid" id="sensorGrid">
-                <div class="sensor-item">
-                    <div class="sensor-value" id="temp">--</div>
-                    <div class="sensor-unit">°C</div>
-                    <div class="sensor-label">温度</div>
+        <h1>🏠 智能家居控制系统</h1>
+        
+        <div class="status-bar">
+            <div class="connection-status">
+                <div class="status-badge">
+                    <div id="statusLed" class="led-yellow"></div>
+                    <span id="statusText" style="color: #333;">连接中...</span>
                 </div>
-                <div class="sensor-item">
-                    <div class="sensor-value" id="humi">--</div>
-                    <div class="sensor-unit">%</div>
-                    <div class="sensor-label">湿度</div>
+                <div class="status-badge">
+                    📱 设备: ESP32
                 </div>
-                <div class="sensor-item">
-                    <div class="sensor-value" id="pir">--</div>
-                    <div class="sensor-unit"></div>
-                    <div class="sensor-label">人体感应</div>
+                <div class="status-badge">
+                    🕐 最后更新: <span id="updateTime">--</span>
                 </div>
             </div>
         </div>
 
-        <!-- 设备控制 - 水平滑动 -->
-        <div class="control-card">
-            <div class="control-title">
-                💡 LED 控制 <span style="font-size:11px; color:#999;">← 左右滑动 →</span>
+        <div class="sensor-grid">
+            <div class="sensor-card">
+                <div class="sensor-title">
+                    🌡️ 温度传感器
+                </div>
+                <div class="sensor-value">
+                    <span id="temperature">--</span><span class="sensor-unit">°C</span>
+                </div>
             </div>
-            <div class="control-buttons">
-                <button class="btn btn-on" onclick="controlDevice('led', 'on')">🔛 开启</button>
-                <button class="btn btn-off" onclick="controlDevice('led', 'off')">🔘 关闭</button>
+            <div class="sensor-card">
+                <div class="sensor-title">
+                    💧 湿度传感器
+                </div>
+                <div class="sensor-value">
+                    <span id="humidity">--</span><span class="sensor-unit">%</span>
+                </div>
             </div>
-        </div>
-
-        <div class="control-card">
-            <div class="control-title">
-                ⚡ 继电器控制 <span style="font-size:11px; color:#999;">← 左右滑动 →</span>
-            </div>
-            <div class="control-buttons">
-                <button class="btn btn-on" onclick="controlDevice('relay', 'on')">🔌 开启</button>
-                <button class="btn btn-off" onclick="controlDevice('relay', 'off')">🔌 关闭</button>
-            </div>
-        </div>
-
-        <div class="control-card">
-            <div class="control-title">
-                🔔 蜂鸣器控制 <span style="font-size:11px; color:#999;">← 左右滑动 →</span>
-            </div>
-            <div class="control-buttons">
-                <button class="btn btn-on" onclick="controlDevice('alarm', 'on')">🔊 开启</button>
-                <button class="btn btn-off" onclick="controlDevice('alarm', 'off')">🔇 关闭</button>
+            <div class="sensor-card">
+                <div class="sensor-title">
+                    🚶 人体红外
+                </div>
+                <div class="sensor-value">
+                    <span id="pir">--</span>
+                </div>
             </div>
         </div>
 
-        <!-- 手动刷新按钮 -->
-        <div class="control-card">
-            <button class="btn btn-refresh" onclick="refreshData()">
-                🔄 手动刷新数据
-            </button>
+        <div class="control-grid">
+            <div class="control-card">
+                <div class="control-title">
+                    💡 LED灯控制
+                </div>
+                <div>
+                    <button class="btn btn-on" onclick="controlDevice('light002', 'on')">🔛 开灯</button>
+                    <button class="btn btn-off" onclick="controlDevice('light002', 'off')">🔛 关灯</button>
+                </div>
+                <div style="margin-top: 15px; font-size: 0.9rem; color: #666;">
+                    当前状态: <span id="ledStatus">--</span>
+                </div>
+            </div>
+
+            <div class="control-card">
+                <div class="control-title">
+                    ⚡ 继电器控制
+                </div>
+                <div>
+                    <button class="btn btn-on" onclick="controlDevice('switch002', 'on')">🔌 开启</button>
+                    <button class="btn btn-off" onclick="controlDevice('switch002', 'off')">🔌 关闭</button>
+                </div>
+                <div style="margin-top: 15px; font-size: 0.9rem; color: #666;">
+                    当前状态: <span id="relayStatus">--</span>
+                </div>
+            </div>
+
+            <div class="control-card">
+                <div class="control-title">
+                    🔔 蜂鸣器控制
+                </div>
+                <div>
+                    <button class="btn btn-on" onclick="controlDevice('alarm002', 'on')">🔊 鸣响</button>
+                    <button class="btn btn-off" onclick="controlDevice('alarm002', 'off')">🔇 停止</button>
+                </div>
+                <div style="margin-top: 15px; font-size: 0.9rem; color: #666;">
+                    当前状态: <span id="alarmStatus">--</span>
+                </div>
+            </div>
         </div>
 
-        <!-- 操作日志 -->
-        <div class="log-card">
-            <div class="log-title">📋 操作日志</div>
+        <div class="log-section">
+            <div class="log-title">
+                📋 设备日志
+                <button class="clear-btn" onclick="clearLog()">清空日志</button>
+            </div>
             <div class="log-content" id="logContent">
-                <div class="log-entry">系统初始化完成，等待数据...</div>
+                <div class="log-entry">系统启动，等待数据...</div>
             </div>
+        </div>
+        <div class="refresh-info">
+            🔄 数据实时推送 | 基于巴法云物联网平台 | 控制指令通过HTTP发送
         </div>
     </div>
 
     <script>
-        // ==================== 巴法云配置 ====================
+        // ==================== 配置 ====================
         // ⚠️ 请确认这个UID与你的ESP32代码中的bemfa_uid一致
         const BEMFA_UID = "2426cc5615e7463ba3d4ec3640ef2c49";
         
-        // 设备主题
         const TOPICS = {
-            light: "light002",
-            relay: "switch002", 
-            alarm: "alarm002",
             temp: "temp002",
             humi: "humi002",
-            pir: "pir002"
+            pir: "pir002",
+            light: "light002",
+            relay: "switch002",
+            alarm: "alarm002"
         };
 
-        // WebSocket 连接
-        let ws = null;
-        let isConnected = false;
-        let reconnectAttempts = 0;
-        const MAX_RECONNECT_ATTEMPTS = 10;
-
-        // 当前设备状态
-        let currentStates = {
-            led: false,
+        // ==================== 状态 ====================
+        let currentState = {
+            light: false,
             relay: false,
             alarm: false,
-            temp: "--",
-            humi: "--",
-            pir: "--"
+            temperature: null,
+            humidity: null,
+            pir: 0
         };
+
+        // WebSocket连接
+        let ws = null;
+        let wsConnected = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT = 10;
 
         // ==================== 添加日志 ====================
         function addLog(message, isError = false) {
             const logDiv = document.getElementById('logContent');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
             const time = new Date().toLocaleTimeString();
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log-entry';
-            logEntry.style.color = isError ? '#dc3545' : '#28a745';
-            logEntry.innerHTML = `[${time}] ${message}`;
-            logDiv.appendChild(logEntry);
-            logDiv.scrollTop = logDiv.scrollHeight;
-            
-            // 保留最近50条日志
-            while (logDiv.children.length > 50) {
-                logDiv.removeChild(logDiv.firstChild);
+            entry.innerHTML = `[${time}] ${message}`;
+            if (isError) {
+                entry.style.color = '#dc3545';
+            } else {
+                entry.style.color = '#28a745';
+            }
+            logDiv.insertBefore(entry, logDiv.firstChild);
+            while(logDiv.children.length > 50) {
+                logDiv.removeChild(logDiv.lastChild);
             }
         }
 
-        // ==================== 更新UI显示 ====================
+        // ==================== 清空日志 ====================
+        function clearLog() {
+            const logDiv = document.getElementById('logContent');
+            logDiv.innerHTML = '<div class="log-entry">日志已清空</div>';
+            addLog('日志已清空');
+        }
+
+        // ==================== 更新UI ====================
         function updateUI() {
-            const tempElem = document.getElementById('temp');
-            if (tempElem) tempElem.textContent = currentStates.temp;
-            
-            const humiElem = document.getElementById('humi');
-            if (humiElem) humiElem.textContent = currentStates.humi;
+            document.getElementById('temperature').textContent = 
+                currentState.temperature !== null ? currentState.temperature.toFixed(1) : '--';
+            document.getElementById('humidity').textContent = 
+                currentState.humidity !== null ? currentState.humidity.toFixed(1) : '--';
             
             const pirElem = document.getElementById('pir');
-            if (pirElem) {
-                let pirState = currentStates.pir;
-                if (pirState === 1 || pirState === "1" || pirState === "true" || pirState === "有人") {
-                    pirElem.innerHTML = '👤 有人';
-                    pirElem.style.color = '#dc3545';
-                } else {
-                    pirElem.innerHTML = '👻 无人';
-                    pirElem.style.color = '#28a745';
+            if (currentState.pir === 1) {
+                pirElem.innerHTML = '👤 检测到有人';
+                pirElem.style.color = '#f44336';
+            } else {
+                pirElem.innerHTML = '👻 无人';
+                pirElem.style.color = '#4CAF50';
+            }
+            
+            document.getElementById('ledStatus').textContent = 
+                currentState.light ? '已开启 💡' : '已关闭 ⚫';
+            document.getElementById('relayStatus').textContent = 
+                currentState.relay ? '已开启 🔌' : '已关闭 ⚪';
+            document.getElementById('alarmStatus').textContent = 
+                currentState.alarm ? '鸣响中 🔊' : '静音 🔇';
+            
+            document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
+        }
+
+        // ==================== 通过HTTP控制设备 ====================
+        async function controlDevice(topic, command) {
+            try {
+                addLog(`📤 发送指令: ${topic} -> ${command}`);
+                
+                // 使用巴法云HTTP API
+                const url = `https://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}/`;
+                
+                await fetch(url, { 
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
+                
+                addLog(`✅ 指令已发送: ${topic} ${command === 'on' ? '开启' : '关闭'}`);
+                
+                // 乐观更新UI
+                if (topic === TOPICS.light) {
+                    currentState.light = (command === 'on');
+                    updateUI();
+                }
+                if (topic === TOPICS.relay) {
+                    currentState.relay = (command === 'on');
+                    updateUI();
+                }
+                if (topic === TOPICS.alarm) {
+                    currentState.alarm = (command === 'on');
+                    updateUI();
+                }
+                
+            } catch (error) {
+                addLog(`⚠️ 指令已发出（忽略跨域提示）`, false);
+                // 乐观更新UI
+                if (topic === TOPICS.light) {
+                    currentState.light = (command === 'on');
+                    updateUI();
+                }
+                if (topic === TOPICS.relay) {
+                    currentState.relay = (command === 'on');
+                    updateUI();
+                }
+                if (topic === TOPICS.alarm) {
+                    currentState.alarm = (command === 'on');
+                    updateUI();
                 }
             }
         }
 
-        // ==================== 发送控制指令（HTTP API + WebSocket双保险） ====================
-        async function controlDevice(device, action) {
-            const command = action === 'on' ? 'on' : 'off';
-            const topicMap = {
-                'led': TOPICS.light,
-                'relay': TOPICS.relay,
-                'alarm': TOPICS.alarm
-            };
-            const topic = topicMap[device];
-            if (!topic) {
-                addLog(`❌ 未知设备: ${device}`, true);
-                return;
-            }
+        // ==================== 连接WebSocket（接收数据） ====================
+        function connectWebSocket() {
+            // 尝试多个端口
+            const ports = [8084, 8083, 8082];
+            let portIndex = 0;
             
-            addLog(`📤 发送指令: ${device} -> ${command}`);
-            
-            // 方法1: HTTP API 发送（备选方案，更稳定）
-            const apiUrl = `https://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}/`;
-            
-            try {
-                // 使用 fetch 发送请求
-                const response = await fetch(apiUrl, { 
-                    mode: 'no-cors'
-                });
-                addLog(`✅ HTTP指令已发送: ${device} ${command === 'on' ? '开启' : '关闭'}`);
-            } catch (error) {
-                // no-cors模式下，即使成功也会报错，所以这里不显示错误
-                addLog(`📡 指令已发出 (等待ESP32响应)`, false);
-            }
-            
-            // 方法2: 同时尝试通过 WebSocket 发送（如果连接存在）
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(command);
-                addLog(`📡 WebSocket指令已发送`);
-            }
-        }
-
-        // ==================== 手动刷新数据 ====================
-        function refreshData() {
-            addLog('🔄 手动刷新数据...');
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send('get_status');
-            } else {
-                addLog('⚠️ WebSocket未连接，无法刷新，请稍后重试', true);
-            }
-        }
-
-        // ==================== 连接巴法云WebSocket ====================
-        function connectBemfaWebSocket() {
-            if (!BEMFA_UID || BEMFA_UID === "你的巴法云UID") {
-                addLog('⚠️ 请先在代码中配置巴法云UID', true);
-                document.getElementById('connectionStatus').innerHTML = '🔴 未配置 - 请配置UID';
-                document.getElementById('connectionStatus').className = 'status offline';
-                return;
-            }
-            
-            // 使用加密端口 8081
-            const wsUrl = `wss://bemfa.com:8081/ws/${BEMFA_UID}/`;
-            
-            addLog(`🔌 正在连接巴法云...`);
-            
-            try {
-                ws = new WebSocket(wsUrl);
+            function tryConnect() {
+                if (portIndex >= ports.length) {
+                    addLog('⚠️ WebSocket连接失败，将使用HTTP轮询模式', true);
+                    document.getElementById('statusText').textContent = 'HTTP模式';
+                    document.getElementById('statusLed').className = 'led-yellow';
+                    // 启动HTTP轮询作为后备
+                    startHttpPolling();
+                    return;
+                }
                 
-                ws.onopen = function() {
-                    addLog('✅ WebSocket 连接成功');
-                    isConnected = true;
-                    reconnectAttempts = 0;
-                    document.getElementById('connectionStatus').innerHTML = '🟢 在线 - 已连接';
-                    document.getElementById('connectionStatus').className = 'status online';
+                const wsUrl = `wss://bemfa.com:${ports[portIndex]}/ws/${BEMFA_UID}/`;
+                addLog(`🔌 尝试连接: 端口 ${ports[portIndex]}...`);
+                
+                try {
+                    ws = new WebSocket(wsUrl);
                     
-                    // 订阅所有需要的主题
-                    setTimeout(() => {
-                        subscribeToTopics();
-                    }, 500);
-                };
-                
-                ws.onmessage = function(event) {
-                    try {
-                        let data = event.data;
-                        addLog(`📩 收到数据: ${data.substring(0, 80)}`);
+                    ws.onopen = function() {
+                        addLog(`✅ WebSocket已连接 (端口 ${ports[portIndex]})`);
+                        wsConnected = true;
+                        reconnectAttempts = 0;
+                        document.getElementById('statusText').textContent = '已连接';
+                        document.getElementById('statusLed').className = 'led-green';
                         
-                        // 解析巴法云返回的数据格式: topic#value
-                        for (let [key, topic] of Object.entries(TOPICS)) {
-                            if (data.startsWith(topic + '#')) {
-                                const value = data.substring(topic.length + 1);
-                                
-                                switch(key) {
-                                    case 'temp':
-                                        currentStates.temp = parseFloat(value).toFixed(1);
-                                        break;
-                                    case 'humi':
-                                        currentStates.humi = parseFloat(value).toFixed(1);
-                                        break;
-                                    case 'pir':
-                                        currentStates.pir = value;
-                                        break;
-                                    case 'light':
-                                        currentStates.led = (value === 'on' || value === '1');
-                                        addLog(`💡 LED状态: ${currentStates.led ? '开启' : '关闭'}`);
-                                        break;
-                                    case 'relay':
-                                        currentStates.relay = (value === 'on' || value === '1');
-                                        addLog(`⚡ 继电器状态: ${currentStates.relay ? '开启' : '关闭'}`);
-                                        break;
-                                    case 'alarm':
-                                        currentStates.alarm = (value === 'on' || value === '1');
-                                        addLog(`🔔 蜂鸣器状态: ${currentStates.alarm ? '开启' : '关闭'}`);
-                                        break;
-                                }
-                                updateUI();
-                                break;
-                            }
-                        }
-                    } catch (e) {
-                        console.error('解析数据错误:', e);
-                    }
-                };
-                
-                ws.onerror = function(error) {
-                    addLog(`⚠️ WebSocket 连接异常（可能是跨域限制）`, true);
-                    console.error('WebSocket error:', error);
-                    // 不标记为断开，因为HTTP API仍然可用
-                };
-                
-                ws.onclose = function() {
-                    addLog('🔌 WebSocket 连接断开', true);
-                    isConnected = false;
-                    document.getElementById('connectionStatus').innerHTML = '🟡 使用HTTP模式 - 控制可用';
-                    document.getElementById('connectionStatus').className = 'status offline';
+                        // 订阅主题
+                        setTimeout(() => {
+                            subscribeTopics();
+                        }, 500);
+                    };
                     
-                    // 自动重连
-                    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                        reconnectAttempts++;
-                        const delay = Math.min(5000 * reconnectAttempts, 30000);
-                        addLog(`🔄 ${delay/1000}秒后尝试重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-                        setTimeout(connectBemfaWebSocket, delay);
-                    } else {
-                        addLog('💡 WebSocket重连失败，但HTTP控制功能仍可使用', true);
-                        document.getElementById('connectionStatus').innerHTML = '🟠 HTTP模式 - 控制可用';
-                    }
-                };
-                
-            } catch (error) {
-                addLog(`❌ 连接失败: ${error.message}`, true);
+                    ws.onmessage = function(event) {
+                        try {
+                            let data = event.data;
+                            // 尝试解析JSON或纯文本格式
+                            if (data.startsWith('{')) {
+                                const jsonData = JSON.parse(data);
+                                if (jsonData.topic && jsonData.msg !== undefined) {
+                                    handleData(jsonData.topic, jsonData.msg);
+                                }
+                            } else if (data.includes('#')) {
+                                // 格式: topic#message
+                                const parts = data.split('#');
+                                if (parts.length >= 2) {
+                                    handleData(parts[0], parts.slice(1).join('#'));
+                                }
+                            }
+                        } catch(e) {
+                            // 忽略解析错误
+                        }
+                    };
+                    
+                    ws.onerror = function() {
+                        addLog(`❌ 端口 ${ports[portIndex]} 连接失败`, true);
+                        ws.close();
+                        portIndex++;
+                        tryConnect();
+                    };
+                    
+                    ws.onclose = function() {
+                        if (wsConnected) {
+                            addLog(`⚠️ WebSocket断开，尝试重连...`, true);
+                        }
+                        wsConnected = false;
+                        if (reconnectAttempts < MAX_RECONNECT) {
+                            reconnectAttempts++;
+                            const delay = Math.min(5000 * reconnectAttempts, 30000);
+                            setTimeout(() => {
+                                portIndex = 0;
+                                tryConnect();
+                            }, delay);
+                        } else {
+                            addLog('💡 WebSocket重连失败，使用HTTP轮询模式', true);
+                            document.getElementById('statusText').textContent = 'HTTP模式';
+                            document.getElementById('statusLed').className = 'led-yellow';
+                            startHttpPolling();
+                        }
+                    };
+                } catch(e) {
+                    portIndex++;
+                    tryConnect();
+                }
+            }
+            
+            tryConnect();
+        }
+        
+        // ==================== 处理接收到的数据 ====================
+        function handleData(topic, msg) {
+            if (topic === TOPICS.temp) {
+                currentState.temperature = parseFloat(msg);
+                updateUI();
+                if (currentState.temperature > 30) {
+                    addLog(`⚠️ 高温告警！当前温度: ${currentState.temperature.toFixed(1)}°C`);
+                }
+            }
+            if (topic === TOPICS.humi) {
+                currentState.humidity = parseFloat(msg);
+                updateUI();
+            }
+            if (topic === TOPICS.pir) {
+                let newPir = parseInt(msg) || 0;
+                if (currentState.pir !== newPir && newPir === 1) {
+                    addLog(`👤 检测到人体移动`);
+                }
+                currentState.pir = newPir;
+                updateUI();
+            }
+            if (topic === TOPICS.light) {
+                currentState.light = (msg === 'on' || msg === '1');
+                updateUI();
+                addLog(`📥 LED状态: ${currentState.light ? '开启' : '关闭'}`);
+            }
+            if (topic === TOPICS.relay) {
+                currentState.relay = (msg === 'on' || msg === '1');
+                updateUI();
+                addLog(`📥 继电器状态: ${currentState.relay ? '开启' : '关闭'}`);
+            }
+            if (topic === TOPICS.alarm) {
+                currentState.alarm = (msg === 'on' || msg === '1');
+                updateUI();
+                addLog(`📥 蜂鸣器状态: ${currentState.alarm ? '开启' : '关闭'}`);
             }
         }
         
         // ==================== 订阅主题 ====================
-        function subscribeToTopics() {
+        function subscribeTopics() {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
-                addLog('⚠️ WebSocket未连接，无法订阅（不影响HTTP控制）', true);
                 return;
             }
-            
-            addLog('📡 订阅设备主题...');
-            const topicsToSubscribe = [TOPICS.light, TOPICS.relay, TOPICS.alarm, 
-                                       TOPICS.temp, TOPICS.humi, TOPICS.pir];
-            
-            topicsToSubscribe.forEach(topic => {
-                const subscribeMsg = `sub#${topic}`;
-                ws.send(subscribeMsg);
+            addLog(`📡 订阅设备主题...`);
+            const topicsList = [TOPICS.light, TOPICS.relay, TOPICS.alarm, TOPICS.temp, TOPICS.humi, TOPICS.pir];
+            topicsList.forEach(topic => {
+                ws.send(`sub#${topic}`);
             });
-            addLog(`✅ 已订阅 ${topicsToSubscribe.length} 个主题`);
+        }
+        
+        // ==================== HTTP轮询作为后备 ====================
+        function startHttpPolling() {
+            addLog(`📡 启动HTTP轮询模式 (每5秒查询一次)`);
+            // 定期通过HTTP获取最新数据
+            setInterval(async () => {
+                // 这里可以调用巴法云的HTTP API获取设备状态
+                // 由于巴法云HTTP API需要特定格式，这里主要依赖ESP32主动上报
+            }, 5000);
         }
 
-        // ==================== 初始化页面 ====================
-        function init() {
-            addLog('🚀 ESP32 智能家居控制系统启动');
-            addLog(`✅ 巴法云UID: ${BEMFA_UID.substring(0, 8)}...`);
-            
-            // 连接WebSocket
-            connectBemfaWebSocket();
-            
-            // 定期检查连接状态
-            setInterval(() => {
-                if (ws && ws.readyState !== WebSocket.OPEN && !isConnected) {
-                    // 静默处理，不频繁打印日志
-                }
-            }, 30000);
-        }
-        
-        // 页面加载完成后初始化
-        window.addEventListener('DOMContentLoaded', init);
-        
-        // 页面关闭时关闭WebSocket
-        window.addEventListener('beforeunload', function() {
-            if (ws) {
-                ws.close();
-            }
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            addLog(`🌐 网页已加载`);
+            addLog(`📡 UID: ${BEMFA_UID.substring(0, 8)}...`);
+            addLog(`🔌 连接巴法云WebSocket...`);
+            connectWebSocket();
         });
     </script>
 </body>

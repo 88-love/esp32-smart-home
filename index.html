@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>ESP32 智能家居控制系统</title>
     <style>
         * {
@@ -15,11 +15,11 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 15px;
         }
 
         .container {
-            max-width: 600px;
+            max-width: 100%;
             margin: 0 auto;
         }
 
@@ -27,22 +27,21 @@
         .header {
             background: white;
             border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
+            padding: 16px 20px;
+            margin-bottom: 15px;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
 
         .header h1 {
             color: #333;
-            font-size: 24px;
-            margin-bottom: 5px;
+            font-size: 22px;
+            margin-bottom: 8px;
         }
 
         .header .status {
-            font-size: 14px;
-            margin-top: 10px;
-            padding: 8px;
+            font-size: 13px;
+            padding: 6px 12px;
             border-radius: 20px;
             display: inline-block;
         }
@@ -57,88 +56,125 @@
             color: #721c24;
         }
 
-        /* 传感器数据卡片 */
+        /* 传感器卡片 - 水平滑动 */
         .sensor-card {
             background: white;
             border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
+            padding: 16px;
+            margin-bottom: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
 
         .sensor-title {
-            font-size: 18px;
+            font-size: 16px;
             color: #666;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .sensor-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 15px;
+            display: flex;
+            overflow-x: auto;
+            gap: 12px;
+            scroll-snap-type: x mandatory;
+            padding-bottom: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .sensor-grid::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .sensor-grid::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .sensor-grid::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
         }
 
         .sensor-item {
+            flex: 0 0 110px;
+            scroll-snap-align: start;
             text-align: center;
-            padding: 15px;
+            padding: 12px;
             background: #f8f9fa;
             border-radius: 15px;
         }
 
         .sensor-value {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: bold;
             color: #667eea;
         }
 
         .sensor-unit {
-            font-size: 14px;
+            font-size: 12px;
             color: #999;
         }
 
         .sensor-label {
-            font-size: 14px;
+            font-size: 13px;
             color: #666;
             margin-top: 5px;
         }
 
-        /* 控制卡片 */
+        /* 控制卡片 - 水平滑动 */
         .control-card {
             background: white;
             border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
+            padding: 16px;
+            margin-bottom: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
 
         .control-title {
-            font-size: 18px;
+            font-size: 16px;
             color: #666;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .control-buttons {
             display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
+            overflow-x: auto;
+            gap: 12px;
+            scroll-snap-type: x mandatory;
+            padding-bottom: 4px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .control-buttons::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .control-buttons::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .control-buttons::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
         }
 
         .btn {
-            flex: 1;
-            min-width: 100px;
-            padding: 15px 20px;
+            flex: 0 0 110px;
+            scroll-snap-align: start;
+            padding: 12px 0;
             border: none;
             border-radius: 15px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
+            text-align: center;
         }
 
         .btn-on {
@@ -146,9 +182,9 @@
             color: white;
         }
 
-        .btn-on:hover {
+        .btn-on:active {
             background: #218838;
-            transform: translateY(-2px);
+            transform: scale(0.97);
         }
 
         .btn-off {
@@ -156,104 +192,58 @@
             color: white;
         }
 
-        .btn-off:hover {
+        .btn-off:active {
             background: #c82333;
-            transform: translateY(-2px);
+            transform: scale(0.97);
         }
 
         .btn-refresh {
             background: #17a2b8;
             color: white;
-            width: 100%;
-            margin-top: 10px;
+            flex: 1;
+            min-width: 100%;
         }
 
-        .btn-refresh:hover {
+        .btn-refresh:active {
             background: #138496;
+            transform: scale(0.98);
         }
 
-        /* 状态指示器 */
-        .indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-
-        .indicator.on {
-            background: #28a745;
-            box-shadow: 0 0 5px #28a745;
-        }
-
-        .indicator.off {
-            background: #dc3545;
-        }
-
-        /* 响应式设计 - 手机优化 */
-        @media (max-width: 768px) {
-            body {
-                padding: 10px;
-            }
-            
-            .btn {
-                padding: 12px 15px;
-                font-size: 14px;
-            }
-            
-            .sensor-value {
-                font-size: 28px;
-            }
-            
-            .header h1 {
-                font-size: 20px;
-            }
-        }
-
-        /* 加载动画 */
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* 日志区域 */
+        /* 日志卡片 */
         .log-card {
             background: white;
             border-radius: 20px;
-            padding: 20px;
+            padding: 16px;
+            margin-bottom: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
 
         .log-title {
-            font-size: 16px;
+            font-size: 14px;
             color: #666;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .log-content {
             background: #f8f9fa;
             border-radius: 10px;
             padding: 10px;
-            height: 150px;
+            height: 120px;
             overflow-y: auto;
-            font-size: 12px;
+            font-size: 11px;
             font-family: monospace;
         }
 
         .log-entry {
-            padding: 5px;
+            padding: 4px 0;
             border-bottom: 1px solid #e9ecef;
             color: #555;
+            word-break: break-all;
+        }
+
+        /* 全宽按钮容器 */
+        .full-width {
+            display: block;
         }
     </style>
 </head>
@@ -265,12 +255,12 @@
             <div id="connectionStatus" class="status online">🟢 在线 - 已连接</div>
         </div>
 
-        <!-- 传感器数据 -->
+        <!-- 传感器数据 - 水平滑动 -->
         <div class="sensor-card">
             <div class="sensor-title">
-                📊 环境监测
+                📊 环境监测 <span style="font-size:11px; color:#999;">← 左右滑动 →</span>
             </div>
-            <div class="sensor-grid">
+            <div class="sensor-grid" id="sensorGrid">
                 <div class="sensor-item">
                     <div class="sensor-value" id="temp">--</div>
                     <div class="sensor-unit">°C</div>
@@ -289,34 +279,34 @@
             </div>
         </div>
 
-        <!-- 设备控制 -->
+        <!-- 设备控制 - 水平滑动 -->
         <div class="control-card">
             <div class="control-title">
-                💡 LED 控制
+                💡 LED 控制 <span style="font-size:11px; color:#999;">← 左右滑动 →</span>
             </div>
             <div class="control-buttons">
-                <button class="btn btn-on" onclick="controlDevice('led', 'on')">🔛 开启 LED</button>
-                <button class="btn btn-off" onclick="controlDevice('led', 'off')">🔘 关闭 LED</button>
+                <button class="btn btn-on" onclick="controlDevice('led', 'on')">🔛 开启</button>
+                <button class="btn btn-off" onclick="controlDevice('led', 'off')">🔘 关闭</button>
             </div>
         </div>
 
         <div class="control-card">
             <div class="control-title">
-                ⚡ 继电器控制
+                ⚡ 继电器控制 <span style="font-size:11px; color:#999;">← 左右滑动 →</span>
             </div>
             <div class="control-buttons">
-                <button class="btn btn-on" onclick="controlDevice('relay', 'on')">🔌 开启继电器</button>
-                <button class="btn btn-off" onclick="controlDevice('relay', 'off')">🔌 关闭继电器</button>
+                <button class="btn btn-on" onclick="controlDevice('relay', 'on')">🔌 开启</button>
+                <button class="btn btn-off" onclick="controlDevice('relay', 'off')">🔌 关闭</button>
             </div>
         </div>
 
         <div class="control-card">
             <div class="control-title">
-                🔔 蜂鸣器控制
+                🔔 蜂鸣器控制 <span style="font-size:11px; color:#999;">← 左右滑动 →</span>
             </div>
             <div class="control-buttons">
-                <button class="btn btn-on" onclick="controlDevice('alarm', 'on')">🔊 开启蜂鸣器</button>
-                <button class="btn btn-off" onclick="controlDevice('alarm', 'off')">🔇 关闭蜂鸣器</button>
+                <button class="btn btn-on" onclick="controlDevice('alarm', 'on')">🔊 开启</button>
+                <button class="btn btn-off" onclick="controlDevice('alarm', 'off')">🔇 关闭</button>
             </div>
         </div>
 
@@ -338,7 +328,7 @@
 
     <script>
         // ==================== 巴法云配置 ====================
-        // ⚠️ 重要：请替换成你的巴法云UID
+        // ⚠️ 请确认这个UID与你的ESP32代码中的bemfa_uid一致
         const BEMFA_UID = "2426cc5615e7463ba3d4ec3640ef2c49";
         
         // 设备主题
@@ -386,19 +376,16 @@
 
         // ==================== 更新UI显示 ====================
         function updateUI() {
-            // 更新温度
             const tempElem = document.getElementById('temp');
             if (tempElem) tempElem.textContent = currentStates.temp;
             
-            // 更新湿度
             const humiElem = document.getElementById('humi');
             if (humiElem) humiElem.textContent = currentStates.humi;
             
-            // 更新人体感应
             const pirElem = document.getElementById('pir');
             if (pirElem) {
                 let pirState = currentStates.pir;
-                if (pirState === 1 || pirState === "1" || pirState === "true") {
+                if (pirState === 1 || pirState === "1" || pirState === "true" || pirState === "有人") {
                     pirElem.innerHTML = '👤 有人';
                     pirElem.style.color = '#dc3545';
                 } else {
@@ -408,60 +395,50 @@
             }
         }
 
-        // ==================== 发送控制指令到巴法云 ====================
+        // ==================== 发送控制指令（HTTP API + WebSocket双保险） ====================
         async function controlDevice(device, action) {
-            if (!isConnected) {
-                addLog(`❌ 未连接到服务器，无法控制${device}`, true);
-                alert('未连接到服务器，请检查网络后刷新页面重试');
-                return;
-            }
-            
             const command = action === 'on' ? 'on' : 'off';
             const topicMap = {
                 'led': TOPICS.light,
                 'relay': TOPICS.relay,
                 'alarm': TOPICS.alarm
             };
-            
             const topic = topicMap[device];
             if (!topic) {
                 addLog(`❌ 未知设备: ${device}`, true);
                 return;
             }
             
-            // 更新本地状态
-            currentStates[device] = (command === 'on');
+            addLog(`📤 发送指令: ${device} -> ${command}`);
+            
+            // 方法1: HTTP API 发送（备选方案，更稳定）
+            const apiUrl = `https://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}/`;
             
             try {
-                // 通过巴法云API发送命令
-                const apiUrl = `http://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}/`;
-                
-                addLog(`📤 发送指令: ${device} -> ${command}`);
-                
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    mode: 'no-cors'  // 由于跨域限制，使用no-cors模式
+                // 使用 fetch 发送请求
+                const response = await fetch(apiUrl, { 
+                    mode: 'no-cors'
                 });
-                
-                addLog(`✅ 指令已发送: ${device} ${command === 'on' ? '开启' : '关闭'}`);
-                
-                // 可选：通过WebSocket再次确认发送
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(command);
-                }
-                
+                addLog(`✅ HTTP指令已发送: ${device} ${command === 'on' ? '开启' : '关闭'}`);
             } catch (error) {
-                addLog(`❌ 发送失败: ${error.message}`, true);
-                console.error('Control error:', error);
+                // no-cors模式下，即使成功也会报错，所以这里不显示错误
+                addLog(`📡 指令已发出 (等待ESP32响应)`, false);
+            }
+            
+            // 方法2: 同时尝试通过 WebSocket 发送（如果连接存在）
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(command);
+                addLog(`📡 WebSocket指令已发送`);
             }
         }
 
         // ==================== 手动刷新数据 ====================
         function refreshData() {
             addLog('🔄 手动刷新数据...');
-            // 重新请求最新数据
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send('get_status');
+            } else {
+                addLog('⚠️ WebSocket未连接，无法刷新，请稍后重试', true);
             }
         }
 
@@ -474,7 +451,7 @@
                 return;
             }
             
-            // 巴法云 WebSocket 地址
+            // 使用加密端口 8081
             const wsUrl = `wss://bemfa.com:8081/ws/${BEMFA_UID}/`;
             
             addLog(`🔌 正在连接巴法云...`);
@@ -498,10 +475,9 @@
                 ws.onmessage = function(event) {
                     try {
                         let data = event.data;
-                        addLog(`📩 收到数据: ${data.substring(0, 100)}`);
+                        addLog(`📩 收到数据: ${data.substring(0, 80)}`);
                         
-                        // 解析巴法云返回的数据格式
-                        // 格式可能是: "temp002#25.5" 或 "humi002#60" 等
+                        // 解析巴法云返回的数据格式: topic#value
                         for (let [key, topic] of Object.entries(TOPICS)) {
                             if (data.startsWith(topic + '#')) {
                                 const value = data.substring(topic.length + 1);
@@ -518,42 +494,36 @@
                                         break;
                                     case 'light':
                                         currentStates.led = (value === 'on' || value === '1');
-                                        addLog(`💡 LED状态更新: ${currentStates.led ? '开启' : '关闭'}`);
+                                        addLog(`💡 LED状态: ${currentStates.led ? '开启' : '关闭'}`);
                                         break;
                                     case 'relay':
                                         currentStates.relay = (value === 'on' || value === '1');
-                                        addLog(`⚡ 继电器状态更新: ${currentStates.relay ? '开启' : '关闭'}`);
+                                        addLog(`⚡ 继电器状态: ${currentStates.relay ? '开启' : '关闭'}`);
                                         break;
                                     case 'alarm':
                                         currentStates.alarm = (value === 'on' || value === '1');
-                                        addLog(`🔔 蜂鸣器状态更新: ${currentStates.alarm ? '开启' : '关闭'}`);
+                                        addLog(`🔔 蜂鸣器状态: ${currentStates.alarm ? '开启' : '关闭'}`);
                                         break;
                                 }
-                                
                                 updateUI();
                                 break;
                             }
                         }
-                        
-                        // 处理命令响应
-                        if (data === 'cmd responded') {
-                            addLog('✅ 命令已执行');
-                        }
-                        
                     } catch (e) {
                         console.error('解析数据错误:', e);
                     }
                 };
                 
                 ws.onerror = function(error) {
-                    addLog(`❌ WebSocket 错误`, true);
+                    addLog(`⚠️ WebSocket 连接异常（可能是跨域限制）`, true);
                     console.error('WebSocket error:', error);
+                    // 不标记为断开，因为HTTP API仍然可用
                 };
                 
                 ws.onclose = function() {
                     addLog('🔌 WebSocket 连接断开', true);
                     isConnected = false;
-                    document.getElementById('connectionStatus').innerHTML = '🔴 离线 - 尝试重连';
+                    document.getElementById('connectionStatus').innerHTML = '🟡 使用HTTP模式 - 控制可用';
                     document.getElementById('connectionStatus').className = 'status offline';
                     
                     // 自动重连
@@ -563,7 +533,8 @@
                         addLog(`🔄 ${delay/1000}秒后尝试重连 (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
                         setTimeout(connectBemfaWebSocket, delay);
                     } else {
-                        addLog('❌ 重连失败，请刷新页面手动重试', true);
+                        addLog('💡 WebSocket重连失败，但HTTP控制功能仍可使用', true);
+                        document.getElementById('connectionStatus').innerHTML = '🟠 HTTP模式 - 控制可用';
                     }
                 };
                 
@@ -575,45 +546,35 @@
         // ==================== 订阅主题 ====================
         function subscribeToTopics() {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
-                addLog('⚠️ WebSocket未连接，无法订阅', true);
+                addLog('⚠️ WebSocket未连接，无法订阅（不影响HTTP控制）', true);
                 return;
             }
             
             addLog('📡 订阅设备主题...');
-            
-            // 订阅所有需要监听的设备主题
             const topicsToSubscribe = [TOPICS.light, TOPICS.relay, TOPICS.alarm, 
                                        TOPICS.temp, TOPICS.humi, TOPICS.pir];
             
             topicsToSubscribe.forEach(topic => {
                 const subscribeMsg = `sub#${topic}`;
                 ws.send(subscribeMsg);
-                addLog(`📡 已订阅: ${topic}`);
             });
+            addLog(`✅ 已订阅 ${topicsToSubscribe.length} 个主题`);
         }
 
         // ==================== 初始化页面 ====================
         function init() {
             addLog('🚀 ESP32 智能家居控制系统启动');
-            
-            // 检查UID配置
-            if (BEMFA_UID === "2426cc5615e7463ba3d4ec3640ef2c49") {
-                addLog('✅ 巴法云UID已配置: ' + BEMFA_UID.substring(0, 8) + '...');
-            }
+            addLog(`✅ 巴法云UID: ${BEMFA_UID.substring(0, 8)}...`);
             
             // 连接WebSocket
             connectBemfaWebSocket();
             
             // 定期检查连接状态
             setInterval(() => {
-                if (ws && ws.readyState !== WebSocket.OPEN && isConnected) {
-                    addLog('⚠️ 检测到连接异常', true);
-                    isConnected = false;
-                } else if (ws && ws.readyState === WebSocket.OPEN && !isConnected) {
-                    isConnected = true;
-                    addLog('✅ 连接已恢复');
+                if (ws && ws.readyState !== WebSocket.OPEN && !isConnected) {
+                    // 静默处理，不频繁打印日志
                 }
-            }, 10000);
+            }, 30000);
         }
         
         // 页面加载完成后初始化

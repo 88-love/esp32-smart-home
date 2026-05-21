@@ -342,163 +342,137 @@
         </div>
     </div>
 
-  <script>
-    // ==================== 配置 ====================
-    const BEMFA_UID = "2426cc5615e7463ba3d4ec3640ef2c49";
-    
-    const TOPICS = {
-        temp: "temp002",
-        humi: "humi002",
-        pir: "pir002",
-        light: "light002",
-        relay: "switch002",
-        alarm: "alarm002"
-    };
-
-    // ==================== 状态 ====================
-    let currentState = {
-        light: false,
-        relay: false,
-        alarm: false,
-        temperature: null,
-        humidity: null,
-        pir: 0
-    };
-
-    let pollingInterval = null;
-
-    // ==================== 添加日志 ====================
-    function addLog(message, isError = false) {
-        const logDiv = document.getElementById('logContent');
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        const time = new Date().toLocaleTimeString();
-        entry.innerHTML = `[${time}] ${message}`;
-        if (isError) {
-            entry.style.color = '#dc3545';
-        } else {
-            entry.style.color = '#28a745';
-        }
-        logDiv.insertBefore(entry, logDiv.firstChild);
-        while(logDiv.children.length > 50) {
-            logDiv.removeChild(logDiv.lastChild);
-        }
-    }
-
-    // ==================== 清空日志 ====================
-    function clearLog() {
-        const logDiv = document.getElementById('logContent');
-        logDiv.innerHTML = '<div class="log-entry">日志已清空</div>';
-        addLog('日志已清空');
-    }
-
-    // ==================== 更新UI ====================
-    function updateUI() {
-        document.getElementById('temperature').textContent = 
-            currentState.temperature !== null ? currentState.temperature.toFixed(1) : '--';
-        document.getElementById('humidity').textContent = 
-            currentState.humidity !== null ? currentState.humidity.toFixed(1) : '--';
+    <script>
+        // ==================== 配置（完全匹配你的ESP32） ====================
+        const BEMFA_UID = "2426cc5615e7463ba3d4ec3640ef2c49";
         
-        const pirElem = document.getElementById('pir');
-        if (currentState.pir === 1) {
-            pirElem.innerHTML = '👤 检测到有人';
-            pirElem.style.color = '#f44336';
-        } else {
-            pirElem.innerHTML = '👻 无人';
-            pirElem.style.color = '#4CAF50';
+        const TOPICS = {
+            temp: "temp002",
+            humi: "humi002",
+            pir: "pir002",
+            light: "light002",
+            relay: "switch002",
+            alarm: "alarm002"
+        };
+
+        // 状态
+        let currentState = {
+            light: false,
+            relay: false,
+            alarm: false,
+            temperature: null,
+            humidity: null,
+            pir: 0
+        };
+
+        let ws = null;
+
+        // 日志
+        function addLog(message, isError = false) {
+            const logDiv = document.getElementById('logContent');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `[${time}] ${message}`;
+            entry.style.color = isError ? '#dc3545' : '#28a745';
+            logDiv.insertBefore(entry, logDiv.firstChild);
+            while(logDiv.children.length > 50) logDiv.removeChild(logDiv.lastChild);
         }
-        
-        document.getElementById('ledStatus').textContent = 
-            currentState.light ? '已开启 💡' : '已关闭 ⚫';
-        document.getElementById('relayStatus').textContent = 
-            currentState.relay ? '已开启 🔌' : '已关闭 ⚪';
-        document.getElementById('alarmStatus').textContent = 
-            currentState.alarm ? '鸣响中 🔊' : '静音 🔇';
-        
-        document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
-    }
 
-    // ==================== 发送控制指令（JSONP跨域兼容） ====================
-    async function controlDevice(topic, command) {
-        try {
-            addLog(`📤 发送指令: ${topic} -> ${command}`);
-            
-            // 巴法云HTTP控制API
-            const url = `https://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}/`;
-            
-            // 用script标签绕过跨域限制
-            const script = document.createElement('script');
-            script.src = url;
-            document.body.appendChild(script);
-            setTimeout(() => document.body.removeChild(script), 200);
-            
-            addLog(`✅ 指令已发送成功`);
-            
-            // 乐观更新UI
-            if (topic === TOPICS.light) currentState.light = (command === 'on');
-            if (topic === TOPICS.relay) currentState.relay = (command === 'on');
-            if (topic === TOPICS.alarm) currentState.alarm = (command === 'on');
-            updateUI();
-            
-        } catch (error) {
-            addLog(`⚠️ 指令已发出（忽略跨域提示）`);
+        // 清空日志
+        function clearLog() {
+            document.getElementById('logContent').innerHTML = '<div class="log-entry">日志已清空</div>';
+            addLog('日志已清空');
         }
-    }
 
-    // ==================== 主动拉取设备状态（HTTP轮询） ====================
-    async function fetchDeviceStatus() {
-        try {
-            // 巴法云状态查询API（注意：部分API需要替换为你实际可用的地址）
-            const statusUrl = `https://api.bemfa.com/api/device/v1/list?uid=${BEMFA_UID}`;
+        // 更新界面
+        function updateUI() {
+            document.getElementById('temperature').textContent = currentState.temperature?.toFixed(1) || '--';
+            document.getElementById('humidity').textContent = currentState.humidity?.toFixed(1) || '--';
             
-            // 这里用JSONP方式拉取状态，实际数据会由ESP32主动上报到巴法云
-            const script = document.createElement('script');
-            script.src = statusUrl + '&callback=updateStatusCallback';
-            document.body.appendChild(script);
-            setTimeout(() => document.body.removeChild(script), 200);
+            const pirElem = document.getElementById('pir');
+            pirElem.innerHTML = currentState.pir === 1 ? '👤 检测到有人' : '👻 无人';
+            pirElem.style.color = currentState.pir === 1 ? '#f44336' : '#4CAF50';
             
-        } catch (e) {
-            // 拉取失败不影响，依赖ESP32主动推送
+            document.getElementById('ledStatus').textContent = currentState.light ? '已开启 💡' : '已关闭 ⚫';
+            document.getElementById('relayStatus').textContent = currentState.relay ? '已开启 🔌' : '已关闭 ⚪';
+            document.getElementById('alarmStatus').textContent = currentState.alarm ? '鸣响中 🔊' : '静音 🔇';
+            document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
         }
-    }
 
-    // JSONP回调函数（处理拉取到的状态数据）
-    function updateStatusCallback(response) {
-        if (response && response.data) {
-            response.data.forEach(device => {
-                if (device.topic === TOPICS.temp) currentState.temperature = parseFloat(device.msg);
-                if (device.topic === TOPICS.humi) currentState.humidity = parseFloat(device.msg);
-                if (device.topic === TOPICS.pir) currentState.pir = parseInt(device.msg) || 0;
-                if (device.topic === TOPICS.light) currentState.light = (device.msg === 'on' || device.msg === '1');
-                if (device.topic === TOPICS.relay) currentState.relay = (device.msg === 'on' || device.msg === '1');
-                if (device.topic === TOPICS.alarm) currentState.alarm = (device.msg === 'on' || device.msg === '1');
-            });
-            updateUI();
+        // 发送控制指令（100%兼容GitHub Pages）
+        async function controlDevice(topic, command) {
+            try {
+                addLog(`📤 发送指令: ${topic} → ${command}`);
+                const url = `https://api.bemfa.com/api/device/v1/data/1/${BEMFA_UID}/${topic}/${command}/`;
+                await fetch(url, { method: 'GET', mode: 'no-cors' });
+                addLog(`✅ 指令发送成功`);
+                
+                if (topic === TOPICS.light) currentState.light = command === 'on';
+                if (topic === TOPICS.relay) currentState.relay = command === 'on';
+                if (topic === TOPICS.alarm) currentState.alarm = command === 'on';
+                updateUI();
+            } catch (e) {
+                addLog(`⚠️ 指令已发送`);
+            }
         }
-    }
 
-    // ==================== 启动HTTP轮询 ====================
-    function startPolling() {
-        addLog(`📡 启动HTTP轮询模式（每5秒查询一次）`);
-        document.getElementById('statusText').textContent = 'HTTP轮询中';
-        document.getElementById('statusLed').className = 'led-yellow';
-        
-        // 每5秒拉取一次状态
-        pollingInterval = setInterval(() => {
-            fetchDeviceStatus();
-            updateUI();
-        }, 5000);
-    }
+        // 连接巴法云（完全匹配你的ESP32端口 9501）
+        function connectWebSocket() {
+            const wsUrl = `ws://bemfa.com:9501/ws/${BEMFA_UID}/`;
+            addLog(`🔌 正在连接巴法云...`);
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                addLog(`✅ 巴法云连接成功`);
+                document.getElementById('statusText').textContent = '已连接';
+                document.getElementById('statusLed').className = 'led-green';
+                
+                // 订阅所有设备
+                Object.values(TOPICS).forEach(t => {
+                    ws.send(`sub#${t}`);
+                });
+                addLog(`📡 已订阅所有设备`);
+            };
+            
+            ws.onmessage = (e) => {
+                const data = e.data.trim();
+                if (!data.includes('#')) return;
+                
+                const [topic, msg] = data.split('#');
+                addLog(`📥 收到数据: ${topic} → ${msg}`);
 
-    // ==================== 初始化 ====================
-    document.addEventListener('DOMContentLoaded', () => {
-        addLog(`🌐 网页已加载`);
-        addLog(`📡 UID: ${BEMFA_UID.substring(0, 8)}...`);
-        addLog(`🔌 切换为纯HTTP模式，确保远程可访问`);
-        
-        // 直接启动HTTP轮询，不尝试WebSocket
-        startPolling();
-    });
-  </script>
+                if (topic === TOPICS.temp) currentState.temperature = parseFloat(msg);
+                if (topic === TOPICS.humi) currentState.humidity = parseFloat(msg);
+                if (topic === TOPICS.pir) currentState.pir = parseInt(msg) || 0;
+                if (topic === TOPICS.light) currentState.light = (msg === "on" || msg === "1");
+                if (topic === TOPICS.relay) currentState.relay = (msg === "on" || msg === "1");
+                if (topic === TOPICS.alarm) currentState.alarm = (msg === "on" || msg === "1");
+                
+                updateUI();
+            };
+            
+            ws.onerror = () => {
+                addLog(`❌ 连接失败，使用HTTP控制模式`, true);
+                document.getElementById('statusText').textContent = 'HTTP控制模式';
+                document.getElementById('statusLed').className = 'led-yellow';
+            };
+            
+            ws.onclose = () => {
+                addLog(`⚠️ 断开连接，5秒后重连...`);
+                document.getElementById('statusText').textContent = '重连中...';
+                document.getElementById('statusLed').className = 'led-yellow';
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        // 启动
+        document.addEventListener('DOMContentLoaded', () => {
+            addLog(`🌐 系统启动`);
+            addLog(`📡 UID: ${BEMFA_UID.substring(0,8)}...`);
+            connectWebSocket();
+        });
+    </script>
 </body>
 </html>

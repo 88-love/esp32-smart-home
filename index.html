@@ -3,110 +3,210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能家居控制系统</title>
+    <title>ESP32 智能家居控制</title>
+    <!-- 引入 MQTT.js 用于连接巴法云 -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:Arial;background: linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;padding:20px}
-        .container{max-width:1200px;margin:0 auto}
-        h1{color:white;text-align:center;margin-bottom:20px}
-        .status{background:white;padding:15px;border-radius:12px;margin-bottom:20px;display:flex;align-items:center;gap:10px}
-        .dot{width:12px;height:12px;border-radius:50%}
-        .green{background:#4cd964}
-        .yellow{background:#ffcc00}
-        .sensor{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:20px}
-        .card{background:white;padding:20px;border-radius:12px;text-align:center}
-        .value{font-size:32px;font-weight:bold;margin:10px 0;color:#667eea}
-        .control{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
-        button{padding:12px 20px;border:none;border-radius:30px;margin:5px;font-size:16px;cursor:pointer}
-        .on{background:#4cd964;color:white}
-        .off{background:#ff3b30;color:white}
-        .log{background:white;padding:15px;border-radius:12px;height:200px;overflow-y:auto;margin-top:20px}
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }
+        header { background: #1a73e8; color: white; text-align: center; padding: 20px; }
+        header h1 { margin: 0; font-size: 24px; }
+        .status { padding: 15px; text-align: center; font-size: 14px; color: #666; border-bottom: 1px solid #eee; }
+        .status.connected { color: #34a853; font-weight: bold; }
+        .controls, .sensors { padding: 20px; }
+        .section-title { font-size: 18px; margin-bottom: 15px; color: #333; border-left: 4px solid #1a73e8; padding-left: 10px; }
+        .device-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; font-size: 16px; color: #555; }
+        .device-item:last-child { border-bottom: none; }
+        .device-name { font-weight: 500; }
+        .device-desc { font-size: 12px; color: #999; margin-top: 5px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+        .btn-on { background: #34a853; color: white; }
+        .btn-off { background: #dadce0; color: #333; }
+        .btn:hover { opacity: 0.9; transform: scale(1.02); }
+        .sensor-value { font-size: 18px; font-weight: bold; color: #1a73e8; }
+        .loading { text-align: center; padding: 20px; color: #666; }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>🏠 智能家居控制平台</h1>
-    <div class="status">
-        <div id="connDot" class="dot yellow"></div>
-        <span id="connText">连接巴法云...</span>
-    </div>
+    <div class="container">
+        <header>
+            <h1>🏠 ESP32 智能家居控制系统</h1>
+        </header>
 
-    <div class="sensor">
-        <div class="card">🌡️ 温度<br><div class="value" id="temp">--</div>℃</div>
-        <div class="card">💧 湿度<br><div class="value" id="humi">--</div>%</div>
-        <div class="card">🚶 人体<br><div class="value" id="pir">--</div></div>
-    </div>
+        <div class="status" id="connectionStatus">🔄 正在连接巴法云...</div>
 
-    <div class="control">
-        <div class="card">💡 LED<br>
-            <button class="on" onclick="send('light002','on')">开灯</button>
-            <button class="off" onclick="send('light002','off')">关灯</button>
+        <div class="sensors">
+            <div class="section-title">📊 实时数据</div>
+            <div class="device-item">
+                <div>
+                    <div class="device-name">🌡️ 温度</div>
+                    <div class="device-desc">当前环境温度</div>
+                </div>
+                <div class="sensor-value" id="tempValue">--.- °C</div>
+            </div>
+            <div class="device-item">
+                <div>
+                    <div class="device-name">💧 湿度</div>
+                    <div class="device-desc">当前环境湿度</div>
+                </div>
+                <div class="sensor-value" id="humiValue">--.- %</div>
+            </div>
+            <div class="device-item">
+                <div>
+                    <div class="device-name">🚶 人体感应</div>
+                    <div class="device-desc">检测是否有人移动</div>
+                </div>
+                <div class="sensor-value" id="pirValue">未知</div>
+            </div>
         </div>
-        <div class="card">⚡ 继电器<br>
-            <button class="on" onclick="send('switch002','on')">开启</button>
-            <button class="off" onclick="send('switch002','off')">关闭</button>
-        </div>
-        <div class="card">🔊 蜂鸣器<br>
-            <button class="on" onclick="send('alarm002','on')">鸣响</button>
-            <button class="off" onclick="send('alarm002','off')">停止</button>
-        </div>
-    </div>
 
-    <div class="log" id="log"></div>
-</div>
-
-<script>
-    // 自动从你的ESP32代码获取
-    const UID = "2426cc5615e7463ba3d4ec3640ef2c49";
-    const topics = ["temp002","humi002","pir002","light002","switch002","alarm002"];
-    let ws;
-
-    function log(m){
-        let d = new Date().toLocaleTimeString();
-        let el = document.createElement("div");
-        el.innerText = `[${d}] ${m}`;
-        document.getElementById("log").prepend(el);
-    }
-
-    function send(dev, cmd){
-        if(ws && ws.readyState === 1){
-            ws.send(`${dev}#${cmd}`);
-            log("发送：" + dev + " " + cmd);
-        }else{
-            log("未连接");
-        }
-    }
-
-    function connect(){
-        ws = new WebSocket(`wss://bemfa.com:9501/ws/${UID}/`);
-        
-        ws.onopen = function(){
-            document.getElementById("connDot").className = "dot green";
-            document.getElementById("connText").innerText = "已连接巴法云";
-            log("巴法云连接成功 ✅");
-            topics.forEach(t => ws.send(`sub#${t}`));
-        };
-        
-        ws.onmessage = function(e){
-            let data = e.data.trim();
-            if(!data.includes("#")) return;
-            let [topic, val] = data.split("#");
+        <div class="controls">
+            <div class="section-title">⚡ 设备控制</div>
             
-            if(topic === "temp002") document.getElementById("temp").innerText = val;
-            if(topic === "humi002") document.getElementById("humi").innerText = val;
-            if(topic === "pir002") document.getElementById("pir").innerText = val=="1"?"有人":"无人";
-            log("数据：" + topic + " = " + val);
-        };
-        
-        ws.onclose = function(){
-            document.getElementById("connDot").className = "dot yellow";
-            document.getElementById("connText").innerText = "重连中...";
-            log("断开，5秒后重连...");
-            setTimeout(connect, 5000);
-        };
-    }
+            <div class="device-item">
+                <div>
+                    <div class="device-name">💡 LED 灯</div>
+                    <div class="device-desc">控制板载LED或外接灯</div>
+                </div>
+                <button class="btn btn-off" id="ledBtn" onclick="toggleDevice('light002', this)">关</button>
+            </div>
 
-    connect();
-</script>
+            <div class="device-item">
+                <div>
+                    <div class="device-name">🔌 继电器</div>
+                    <div class="device-desc">控制大功率电器开关</div>
+                </div>
+                <button class="btn btn-off" id="relayBtn" onclick="toggleDevice('switch002', this)">关</button>
+            </div>
+
+            <div class="device-item">
+                <div>
+                    <div class="device-name">🔔 蜂鸣器</div>
+                    <div class="device-desc">控制报警或提示音</div>
+                </div>
+                <button class="btn btn-off" id="buzzerBtn" onclick="toggleDevice('alarm002', this)">关</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 配置信息 (请替换为你自己的巴法云 UID)
+        const BEMFA_UID = "2426cc5615e7463ba3d4ec3640ef2c49"; // 替换为你的实际UID
+        const BEMFA_SERVER = "wss://bemfa.com:9502/ws"; // 巴法云WebSocket地址
+
+        // 设备主题映射
+        const TOPICS = {
+            led: "light002",
+            relay: "switch002",
+            buzzer: "alarm002",
+            temp: "temp002",
+            humi: "humi002",
+            pir: "pir002"
+        };
+
+        let mqttClient = null;
+        let buttonStates = { light002: false, switch002: false, alarm002: false };
+
+        // 初始化连接
+        function connect() {
+            const connection = {
+                port: 9502,
+                host: 'bemfa.com',
+                path: '/ws',
+                clientId: 'web_client_' + Math.random().toString(16).substr(2, 9),
+                username: BEMFA_UID,
+                password: ''
+            };
+
+            mqttClient = mqtt.connect(BEMFA_SERVER, connection);
+
+            mqttClient.on('connect', function () {
+                console.log('✅ 成功连接到巴法云');
+                document.getElementById('connectionStatus').textContent = '✅ 巴法云连接成功';
+                document.getElementById('connectionStorage').style.color = '#34a853';
+
+                // 订阅所有相关主题
+                Object.values(TOPICS).forEach(topic => {
+                    mqttClient.subscribe(topic, function (err) {
+                        if (!err) console.log(`👂 已订阅主题: ${topic}`);
+                    });
+                });
+            });
+
+            mqttClient.on('message', function (topic, message) {
+                const payload = message.toString();
+                console.log(`📩 收到消息: ${topic} => ${payload}`);
+                updateUI(topic, payload);
+            });
+
+            mqttClient.on('error', function (err) {
+                console.error('❌ 连接错误:', err);
+                document.getElementById('connectionStatus').textContent = '❌ 连接失败，请刷新重试';
+            });
+        }
+
+        // 更新UI界面
+        function updateUI(topic, payload) {
+            // 处理开关状态
+            if (payload === 'on' || payload === '1' || payload === 'ON') {
+                buttonStates[topic] = true;
+                updateButtonStyle(topic, true);
+            } else if (payload === 'off' || payload === '0' || payload === 'OFF') {
+                buttonStates[topic] = false;
+                updateButtonStyle(topic, false);
+            } 
+
+            // 处理传感器数据
+            switch (topic) {
+                case TOPICS.temp:
+                    document.getElementById('tempValue').textContent = payload + ' °C';
+                    break;
+                case TOPICS.humi:
+                    document.getElementById('humiValue').textContent = payload + ' %';
+                    break;
+                case TOPICS.pir:
+                    document.getElementById('pirValue').textContent = payload === '1' ? '有人' : '无人';
+                    break;
+            }
+        }
+
+        // 更新按钮样式
+        function updateButtonStyle(topic, isOn) {
+            let btnId = '';
+            if (topic === TOPICS.led) btnId = 'ledBtn';
+            else if (topic === TOPICS.relay) btnId = 'relayBtn';
+            else if (topic === TOPICS.buzzer) btnId = 'buzzerBtn';
+            
+            if (btnId) {
+                const btn = document.getElementById(btnId);
+                btn.textContent = isOn ? '开' : '关';
+                btn.className = `btn ${isOn ? 'btn-on' : 'btn-off'}`;
+            }
+        }
+
+        // 切换设备状态
+        function toggleDevice(topic, element) {
+            if (!mqttClient || !mqttClient.connected) {
+                alert('⚠️ 请先连接到巴法云！');
+                return;
+            }
+
+            const newState = !buttonStates[topic];
+            const message = newState ? 'on' : 'off';
+            
+            mqttClient.publish(topic, message, { qos: 0, retain: false });
+            console.log(`📤 发送指令: ${topic} => ${message}`);
+            
+            // 本地预览变化
+            buttonStates[topic] = newState;
+            updateButtonStyle(topic, newState);
+        }
+
+        // 页面加载完成后连接
+        window.onload = function() {
+            connect();
+        };
+    </script>
 </body>
 </html>

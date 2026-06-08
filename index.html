@@ -1,193 +1,268 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 智能家居控制系统</title>
+    <title>智能家居控制面板 - OneNET</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Arial', sans-serif;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background-color: #f5f7fa;
-            max-width: 600px;
-            margin: 20px auto;
-            padding: 0 15px;
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
         }
-        .header {
-            background-color: #1677ff;
-            color: white;
-            padding: 15px;
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { text-align: center; color: white; margin-bottom: 10px; }
+        .subtitle { text-align: center; color: rgba(255,255,255,0.8); margin-bottom: 30px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .card h2 { color: #667eea; margin-bottom: 15px; border-left: 4px solid #667eea; padding-left: 10px; }
+        .sensor-value { font-size: 2.5em; font-weight: bold; text-align: center; margin: 20px 0; }
+        .temp { color: #ff6b6b; }
+        .humi { color: #4ecdc4; }
+        button {
+            width: 45%;
+            padding: 12px;
+            margin: 10px 2%;
+            border: none;
             border-radius: 8px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .section {
-            background-color: white;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-        }
-        .section h3 {
-            margin-bottom: 15px;
-            color: #333;
-            border-left: 4px solid #1677ff;
-            padding-left: 8px;
-        }
-        .item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #eee;
-        }
-        .item:last-child {
-            border-bottom: none;
-        }
-        .item .label {
-            display: flex;
-            flex-direction: column;
-        }
-        .item .label span:first-child {
+            font-size: 16px;
             font-weight: bold;
-            color: #333;
+            cursor: pointer;
         }
-        .item .label span:last-child {
-            font-size: 12px;
-            color: #999;
-            margin-top: 4px;
-        }
+        .btn-on { background: #51cf66; color: white; }
+        .btn-off { background: #ff6b6b; color: white; }
         .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
             font-weight: bold;
-            color: #999;
         }
-        .btn-group {
+        .status-on { background: #51cf66; color: white; }
+        .status-off { background: #868e96; color: white; }
+        .pir-detected { background: #ff6b6b; color: white; text-align: center; padding: 10px; border-radius: 8px; }
+        .pir-clear { background: #51cf66; color: white; text-align: center; padding: 10px; border-radius: 8px; }
+        .update-time { text-align: center; color: white; margin-top: 20px; font-size: 12px; }
+        .config-bar {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
         }
-        button {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            color: white;
-            cursor: pointer;
+        .config-bar input {
+            flex: 2;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
             font-size: 14px;
         }
-        .btn-on {
-            background-color: #00c851;
+        .config-bar button {
+            width: auto;
+            margin: 0;
+            padding: 10px 20px;
         }
-        .btn-off {
-            background-color: #ff3b30;
+        .note {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
+    <div class="container">
         <h1>🏠 智能家居控制系统</h1>
-        <p id="conn-status">正常轮询数据中</p>
+        <div class="subtitle">基于 OneNET 物联网平台</div>
+        
+        <div class="config-bar">
+            <input type="text" id="apiKey" placeholder="API Key" style="flex:3;">
+            <input type="text" id="productId" placeholder="产品ID" value="EIW9VAB9YY" style="flex:2;">
+            <input type="text" id="deviceName" placeholder="设备名" value="esp32" style="flex:2;">
+            <button onclick="saveConfig()" style="background:#667eea;">保存配置</button>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>🌡️ 温度</h2>
+                <div class="sensor-value temp"><span id="temp">--</span> °C</div>
+            </div>
+            <div class="card">
+                <h2>💧 湿度</h2>
+                <div class="sensor-value humi"><span id="humi">--</span> %</div>
+            </div>
+            <div class="card">
+                <h2>🚶 人体感应</h2>
+                <div id="pirDisplay" class="pir-clear">✅ 无人</div>
+            </div>
+            <div class="card">
+                <h2>💡 LED 灯</h2>
+                <button class="btn-on" onclick="sendCommand('led', 1)">🔘 开灯</button>
+                <button class="btn-off" onclick="sendCommand('led', 0)">⚫ 关灯</button>
+                <div id="ledStatus" class="status status-off">已关闭</div>
+            </div>
+            <div class="card">
+                <h2>⚡ 继电器</h2>
+                <button class="btn-on" onclick="sendCommand('relay', 1)">🔌 打开</button>
+                <button class="btn-off" onclick="sendCommand('relay', 0)">🔴 关闭</button>
+                <div id="relayStatus" class="status status-off">已关闭</div>
+            </div>
+            <div class="card">
+                <h2>🔔 蜂鸣器</h2>
+                <button class="btn-on" onclick="sendCommand('buzzer', 1)">🔊 响铃</button>
+                <button class="btn-off" onclick="sendCommand('buzzer', 0)">🔇 静音</button>
+                <div id="buzzerStatus" class="status status-off">已关闭</div>
+            </div>
+        </div>
+        <div class="update-time">📡 最后更新: <span id="updateTime">--</span> | 自动刷新中</div>
     </div>
 
-    <div class="section">
-        <h3>📊 实时数据</h3>
-        <div class="item">
-            <div class="label">
-                <span>🌡️ 温度</span>
-                <span>当前环境温度</span>
-            </div>
-            <div id="temp" class="status">---.°C</div>
-        </div>
-        <div class="item">
-            <div class="label">
-                <span>💧 湿度</span>
-                <span>当前环境湿度</span>
-            </div>
-            <div id="humi" class="status">---.%</div>
-        </div>
-        <div class="item">
-            <div class="label">
-                <span>🚶 人体感应</span>
-                <span>检测是否有人移动</span>
-            </div>
-            <div id="pir" class="status">未知</div>
-        </div>
-    </div>
+    <script>
+        // 配置
+        let API_KEY = localStorage.getItem('onenet_api_key') || '';
+        let PRODUCT_ID = localStorage.getItem('onenet_product_id') || 'EIW9VAB9YY';
+        let DEVICE_NAME = localStorage.getItem('onenet_device_name') || 'esp32';
 
-    <div class="section">
-        <h3>⚡ 设备控制</h3>
-        <div class="item">
-            <div class="label">
-                <span>💡 LED灯</span>
-                <span>控制板载LED或外接灯</span>
-            </div>
-            <div class="btn-group">
-                <button class="btn-on" onclick="send('light002','on')">开</button>
-                <button class="btn-off" onclick="send('light002','off')">关</button>
-            </div>
-        </div>
-        <div class="item">
-            <div class="label">
-                <span>🔌 继电器</span>
-                <span>控制大功率电器开关</span>
-            </div>
-            <div class="btn-group">
-                <button class="btn-on" onclick="send('switch002','on')">开</button>
-                <button class="btn-off" onclick="send('switch002','off')">关</button>
-            </div>
-        </div>
-        <div class="item">
-            <div class="label">
-                <span>🔔 蜂鸣器</span>
-                <span>控制报警或提示音</span>
-            </div>
-            <div class="btn-group">
-                <button class="btn-on" onclick="send('alarm002','on')">开</button>
-                <button class="btn-off" onclick="send('alarm002','off')">关</button>
-            </div>
-        </div>
-    </div>
+        // 页面加载时恢复
+        document.getElementById('apiKey').value = API_KEY;
+        document.getElementById('productId').value = PRODUCT_ID;
+        document.getElementById('deviceName').value = DEVICE_NAME;
 
-<script>
-const UID = "2426cc5615e7463ba3d4ec3640ef2c49";
-const api = "https://bemfa.com/api/v1";
+        if (API_KEY && PRODUCT_ID && DEVICE_NAME) {
+            startRefresh();
+        }
 
-// 获取单条数据
-async function getTopic(topic) {
-    try {
-        let res = await fetch(`${api}/get?uid=${UID}&topic=${topic}`);
-        return await res.text();
-    } catch (e) {
-        return "";
-    }
-}
+        function saveConfig() {
+            API_KEY = document.getElementById('apiKey').value.trim();
+            PRODUCT_ID = document.getElementById('productId').value.trim();
+            DEVICE_NAME = document.getElementById('deviceName').value.trim();
+            
+            if (API_KEY && PRODUCT_ID && DEVICE_NAME) {
+                localStorage.setItem('onenet_api_key', API_KEY);
+                localStorage.setItem('onenet_product_id', PRODUCT_ID);
+                localStorage.setItem('onenet_device_name', DEVICE_NAME);
+                alert('配置已保存，开始获取数据');
+                startRefresh();
+            } else {
+                alert('请填写完整配置信息');
+            }
+        }
 
-// 发送指令
-async function send(topic, msg) {
-    try {
-        await fetch(`${api}/send?uid=${UID}&topic=${topic}&msg=${msg}`);
-        alert("指令发送成功");
-    } catch (e) {
-        alert("指令发送失败");
-    }
-}
+        let refreshInterval = null;
+        function startRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            fetchData();
+            refreshInterval = setInterval(fetchData, 3000);
+        }
 
-// 刷新所有数据
-async function refreshData() {
-    let t = await getTopic("temp004");
-    let h = await getTopic("humi004");
-    let p = await getTopic("pir004");
+        async function fetchData() {
+            if (!API_KEY || !PRODUCT_ID || !DEVICE_NAME) return;
+            
+            const url = `https://open.iot.10086.cn/api/v5/device/data?product_id=${PRODUCT_ID}&device_name=${DEVICE_NAME}`;
+            
+            try {
+                const response = await fetch(url, {
+                    headers: { 'api-key': API_KEY }
+                });
+                const data = await response.json();
+                
+                if (data.code === 0 && data.data) {
+                    updateUI(data.data);
+                } else {
+                    console.log('获取数据失败:', data);
+                    if (data.code === 4005) {
+                        document.getElementById('updateTime').innerHTML = '⚠️ API Key 无效，请检查';
+                    }
+                }
+            } catch (error) {
+                console.error('请求失败:', error);
+            }
+        }
 
-    document.getElementById("temp").innerText = t ? t + "°C" : "---.°C";
-    document.getElementById("humi").innerText = h ? h + "%" : "---.%";
-    document.getElementById("pir").innerText = p === "1" ? "有人" : (p === "0" ? "无人" : "未知");
-}
+        function updateUI(data) {
+            if (data.temperature !== undefined) {
+                document.getElementById('temp').innerHTML = data.temperature.toFixed(1);
+            }
+            if (data.humidity !== undefined) {
+                document.getElementById('humi').innerHTML = data.humidity.toFixed(1);
+            }
+            if (data.pir !== undefined) {
+                const pirDiv = document.getElementById('pirDisplay');
+                if (data.pir == 1) {
+                    pirDiv.innerHTML = '⚠️ 检测到有人！';
+                    pirDiv.className = 'pir-detected';
+                } else {
+                    pirDiv.innerHTML = '✅ 无人';
+                    pirDiv.className = 'pir-clear';
+                }
+            }
+            if (data.led !== undefined) {
+                const ledDiv = document.getElementById('ledStatus');
+                ledDiv.innerHTML = data.led == 1 ? '🟢 已开启' : '🔴 已关闭';
+                ledDiv.className = data.led == 1 ? 'status status-on' : 'status status-off';
+            }
+            if (data.relay !== undefined) {
+                const relayDiv = document.getElementById('relayStatus');
+                relayDiv.innerHTML = data.relay == 1 ? '🟢 已开启' : '🔴 已关闭';
+                relayDiv.className = data.relay == 1 ? 'status status-on' : 'status status-off';
+            }
+            if (data.buzzer !== undefined) {
+                const buzzerDiv = document.getElementById('buzzerStatus');
+                buzzerDiv.innerHTML = data.buzzer == 1 ? '🔔 响铃中' : '🔕 已关闭';
+                buzzerDiv.className = data.buzzer == 1 ? 'status status-on' : 'status status-off';
+            }
+            
+            document.getElementById('updateTime').innerHTML = new Date().toLocaleString();
+        }
 
-// 3秒自动刷新
-refreshData();
-setInterval(refreshData, 3000);
-</script>
+        async function sendCommand(device, value) {
+            if (!API_KEY || !PRODUCT_ID || !DEVICE_NAME) {
+                alert('请先保存配置');
+                return;
+            }
+            
+            const url = `https://open.iot.10086.cn/api/v5/device/command`;
+            const body = {
+                product_id: PRODUCT_ID,
+                device_name: DEVICE_NAME,
+                data: {
+                    [device]: value
+                }
+            };
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api-key': API_KEY
+                    },
+                    body: JSON.stringify(body)
+                });
+                const result = await response.json();
+                if (result.code === 0) {
+                    console.log(`命令发送成功: ${device}=${value}`);
+                    setTimeout(fetchData, 500);
+                } else {
+                    alert('控制失败: ' + (result.msg || '未知错误'));
+                }
+            } catch (error) {
+                console.error('发送失败:', error);
+                alert('网络错误，请重试');
+            }
+        }
+    </script>
 </body>
 </html>

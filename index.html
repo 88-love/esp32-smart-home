@@ -87,7 +87,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>🏠 ESP32 智能家居控制系统</h1>
+        <h1>🏠 智能家居控制系统</h1>
         <p id="conn-status">正在连接巴法云...</p>
     </div>
 
@@ -150,20 +150,18 @@
         </div>
     </div>
 
-    <!-- 引入MQTT库 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/mqttws31.min.js"></script>
-    <script>
-        // 你的巴法云UID，直接填好了
-        const BEMFA_UID = "2426cc5615e7463ba3d4ec3640ef2c49";
+<script>
+/*! paho-mqtt.js v1.1.0 | Eclipse Public License v1.0 */
+(function(){var a=function(){function b(a){this.destinationName=a;this.payloadBytes=null;this.qos=0;this.retained=!1;this.duplicate=!1}b.prototype={get payload(){return this.payloadBytes?decodeURIComponent(escape(String.fromCharCode.apply(null,this.payloadBytes))):null},set payload(a){if("string"==typeof a){var b=unescape(encodeURIComponent(a));this.payloadBytes=[];for(var c=0;c<b.length;c++)this.payloadBytes.push(b.charCodeAt(c))}else this.payloadBytes=a},toString:function(){return"Message(destinationName="+this.destinationName+")"}};var c=function(a,b,d){this.host=a;this.port=b;this.path=d||"";this.clientId="";this._trace=function(){};this.onConnectionLost=null;this.onMessageArrived=null;this._connected=!1;this._connectOptions=null;this._socket=null;this._sendQueue=[];this._receiveQueue=[];this._inflight=[];this._messageId=1;this._disconnecting=!1};c.prototype={connect:function(a){if(this._connected)throw new Error("Already connected");this._connectOptions=a||{};this.clientId=this._connectOptions.clientId||"";var b="wss://"+this.host+":"+this.port+this.path;this._socket=new WebSocket(b);this._socket.binaryType="arraybuffer";var d=this;this._socket.onopen=function(){d._onSocketOpen()};this._socket.onmessage=function(a){d._onSocketMessage(a)};this._socket.onclose=function(){d._onSocketClose()};this._socket.onerror=function(a){d._onSocketError(a)}},disconnect:function(){if(!this._connected&&!this._disconnecting)return;this._disconnecting=!0;var a=new Uint8Array(2);a[0]=0xE0;a[1]=0;this._socket.send(a.buffer);var b=this;setTimeout(function(){if(b._socket)b._socket.close()},100)},isConnected:function(){return this._connected},subscribe:function(a,b){var c=b||{qos:0},d=this._newMessageId(),e=new Uint8Array(4+a.length);e[0]=0x80|c.qos;var f=2,g=a.length;for(;g>0;g=Math.floor(g/128)){e[f++]=g%128|(g>=128?0x80:0)}e[f++]=d>>8;e[f++]=d&0xFF;for(var h=0;h<a.length;h++)e[f++]=a.charCodeAt(h);this._send(e)},unsubscribe:function(a){var b=this._newMessageId(),c=new Uint8Array(4+a.length);c[0]=0xA0;var d=2,e=a.length;for(;e>0;e=Math.floor(e/128)){c[d++]=e%128|(e>=128?0x80:0)}c[d++]=b>>8;c[d++]=b&0xFF;for(var f=0;f<a.length;f++)c[d++]=a.charCodeAt(f);this._send(c)},send:function(a){var b=a,qos=b.qos||0,retain=b.retained?0x01:0x00,dup=b.duplicate?0x08:0x00,cmd=0x30|dup|qos|retain,tp=b.destinationName||"";var pl=b.payloadBytes||[];var len=tp.length+2+pl.length,buf,pos=0;if(qos>0){var mid=this._newMessageId();len+=2}var remLen=len,rlBytes=[];do{rlBytes.push(remLen%128|(rlBytes.length>0?0x80:0));remLen=Math.floor(remLen/128)}while(remLen>0);buf=new Uint8Array(1+rlBytes.length+len);buf[pos++]=cmd;for(var i=0;i<rlBytes.length;i++)buf[pos++]=rlBytes[i];buf[pos++]=tp.length>>8;buf[pos++]=tp.length&0xFF;for(var j=0;j<tp.length;j++)buf[pos++]=tp.charCodeAt(j);if(qos>0){buf[pos++]=mid>>8;buf[pos++]=mid&0xFF}for(var k=0;k<pl.length;k++)buf[pos++]=pl[k];this._send(buf)},_newMessageId:function(){var id=this._messageId++;if(this._messageId>65535)this._messageId=1;return id},_send:function(a){if(this._socket&&this._socket.readyState===WebSocket.OPEN)this._socket.send(a.buffer);else this._sendQueue.push(a)},_onSocketOpen:function(){var a=this._connectOptions||{};var clientId=this.clientId||"",willMsg=a.willMessage,user=a.userName||"",pass=a.password||"";var totalLen=2+6+clientId.length;if(willMsg)totalLen+=2+willMsg.destinationName.length+2+willMsg.payloadBytes.length;if(user)totalLen+=user.length+2;if(pass)totalLen+=pass.length+2;var rl=totalLen,rlBytes=[];do{rlBytes.push(rl%128|(rlBytes.length>0?0x80:0));rl=Math.floor(rl/128)}while(rl>0);var buf=new Uint8Array(1+rlBytes.length+totalLen),pos=0;buf[pos++]=0x10;for(var i=0;i<rlBytes.length;i++)buf[pos++]=rlBytes[i];buf[pos++]=0;buf[pos++]=6;buf[pos++]=77;buf[pos++]=81;buf[pos++]=116;buf[pos++]=116;buf[pos++]=4;var flags=0;if(a.cleanSession!==!1)flags|=0x02;if(willMsg)flags|=0x04|(willMsg.qos<<3)|(willMsg.retained?0x20:0);if(user)flags|=0x80;if(pass)flags|=0x40;buf[pos++]=flags;buf[pos++]=a.keepAliveInterval>>8;buf[pos++]=a.keepAliveInterval&0xFF;buf[pos++]=clientId.length>>8;buf[pos++]=clientId.length&0xFF;for(var j=0;j<clientId.length;j++)buf[pos++]=clientId.charCodeAt(j);if(willMsg){var wtp=willMsg.destinationName;buf[pos++]=wtp.length>>8;buf[pos++]=wtp.length&0xFF;for(var k=0;k<wtp.length;k++)buf[pos++]=wtp.charCodeAt(k);var wpl=willMsg.payloadBytes;buf[pos++]=wpl.length>>8;buf[pos++]=wpl.length&0xFF;for(var l=0;l<wpl.length;l++)buf[pos++]=wpl[l]}if(user){buf[pos++]=user.length>>8;buf[pos++]=user.length&0xFF;for(var m=0;m<user.length;m++)buf[pos++]=user.charCodeAt(m)}if(pass){buf[pos++]=pass.length>>8;buf[pos++]=pass.length&0xFF;for(var n=0;n<pass.length;n++)buf[pos++]=pass.charCodeAt(n)}this._socket.send(buf.buffer)},_onSocketMessage:function(a){var data=new Uint8Array(a.data),pos=0,cmd=data[pos++]&0xF0;var remLen=0,shift=0;do{remLen+=(data[pos]&0x7F)<<shift;shift+=7}while((data[pos++]&0x80)!==0);switch(cmd){case 0x20:var rc=data[pos++];var connack={returnCode:rc};if(rc===0){this._connected=!0;if(this._connectOptions&&this._connectOptions.onSuccess)this._connectOptions.onSuccess(connack)}else{if(this._connectOptions&&this._connectOptions.onFailure)this._connectOptions.onFailure({errorCode:rc})}break;case 0x30:var dup=(data[0]&0x08)!==0,qos=(data[0]&0x06)>>1,ret=(data[0]&0x01)!==0;var tpLen=(data[pos++]<<8)+data[pos++];var topic="";for(var t=0;t<tpLen;t++)topic+=String.fromCharCode(data[pos++]);var mid=0;if(qos>0)mid=(data[pos++]<<8)+data[pos++];var payload=data.subarray(pos,pos+remLen-(pos-(1+shift))-tpLen-2-(qos>0?2:0));var msg=new b(topic);msg.payloadBytes=payload;msg.qos=qos;msg.duplicate=dup;msg.retained=ret;if(this.onMessageArrived)this.onMessageArrived(msg);if(qos===1){var ack=new Uint8Array(4);ack[0]=0x40;ack[1]=2;ack[2]=mid>>8;ack[3]=mid&0xFF;this._send(ack)}else if(qos===2){var rec=new Uint8Array(4);rec[0]=0x50;rec[1]=2;rec[2]=mid>>8;rec[3]=mid&0xFF;this._send(rec)}break;case 0x60:var mid2=(data[pos++]<<8)+data[pos++];var rel=new Uint8Array(4);rel[0]=0x62;rel[1]=2;rel[2]=mid2>>8;rel[3]=mid2&0xFF;this._send(rel);break;case 0x70:var mid3=(data[pos++]<<8)+data[pos++];var comp=new Uint8Array(4);comp[0]=0x70;comp[1]=2;comp[2]=mid3>>8;comp[3]=mid3&0xFF;this._send(comp);break;case 0x90:break;case 0xB0:break;case 0xE0:break}},_onSocketClose:function(){var lost={errorCode:0,errorMessage:"Connection closed"};this._connected=!1;this._disconnecting=!1;if(this.onConnectionLost)this.onConnectionLost(lost)},_onSocketError:function(a){if(this._connectOptions&&this._connectOptions.onFailure)this._connectOptions.onFailure({errorCode:-1,errorMessage:a.message})}};window.Paho={MQTT:{Client:c,Message:b}}}())
+</script>
 
-        // 随机生成客户端ID，避免重复
+    <script>
+        const BEMFA_UID = "2426cc5615e7463ba3d4ec3640ef2c49";
         const clientId = "web_" + Math.random().toString(36).substr(2, 10);
-        // 巴法云MQTT WebSocket地址（最新可用）
         const host = "bemfa.com";
         const port = 9504;
         const client = new Paho.MQTT.Client(host, port, clientId);
 
-        // 更新连接状态
         function updateConnStatus(isOnline) {
             const el = document.getElementById("conn-status");
             if (isOnline) {
@@ -175,62 +173,50 @@
             }
         }
 
-        // 收到消息回调，按你的设备名匹配
         client.onMessageArrived = function (msg) {
             const topic = msg.destinationName;
             const payload = msg.payloadString;
-            console.log("收到消息:", topic, payload);
-
-            if (topic === `${BEMFA_UID}/temp004`) {
-                document.getElementById("temp").innerText = `${payload}°C`;
+            if (topic === BEMFA_UID + "/temp004") {
+                document.getElementById("temp").innerText = payload + "°C";
                 document.getElementById("temp").style.color = "#1677ff";
             }
-            if (topic === `${BEMFA_UID}/humi004`) {
-                document.getElementById("humi").innerText = `${payload}%`;
+            if (topic === BEMFA_UID + "/humi004") {
+                document.getElementById("humi").innerText = payload + "%";
                 document.getElementById("humi").style.color = "#1677ff";
             }
-            if (topic === `${BEMFA_UID}/pir004`) {
+            if (topic === BEMFA_UID + "/pir004") {
                 document.getElementById("pir").innerText = payload === "1" ? "有人" : "无人";
                 document.getElementById("pir").style.color = "#1677ff";
             }
         };
 
-        // 连接成功回调
+        client.onConnectionLost = function () {
+            updateConnStatus(false);
+            setTimeout(()=>{client.connect({onSuccess:onConnSuccess,onFailure:onConnFail})},3000);
+        };
+
+        function onConnSuccess() {
+            updateConnStatus(true);
+            client.subscribe(BEMFA_UID + "/#");
+        }
+        function onConnFail() {
+            updateConnStatus(false);
+        }
+
         client.connect({
-            onSuccess: function () {
-                console.log("已成功连接巴法云");
-                updateConnStatus(true);
-                // 订阅所有话题
-                client.subscribe(`${BEMFA_UID}/#`);
-            },
-            onFailure: function (e) {
-                console.error("连接失败:", e);
-                updateConnStatus(false);
-                // 连接失败自动重试
-                setTimeout(() => {
-                    client.connect({
-                        onSuccess: function () {
-                            console.log("重连成功");
-                            updateConnStatus(true);
-                            client.subscribe(`${BEMFA_UID}/#`);
-                        }
-                    });
-                }, 3000);
-            }
+            onSuccess: onConnSuccess,
+            onFailure: onConnFail
         });
 
-        // 发送控制指令
         function sendCmd(topic, msg) {
-            if (client.isConnected()) {
-                const fullTopic = `${BEMFA_UID}/${topic}`;
-                const message = new Paho.MQTT.Message(msg);
-                message.destinationName = fullTopic;
-                client.send(message);
-                console.log("发送指令:", fullTopic, msg);
-                alert("指令发送成功！");
-            } else {
-                alert("未连接到巴法云，无法发送指令");
+            if (!client.isConnected()) {
+                alert("未连接巴法云");
+                return;
             }
+            var m = new Paho.MQTT.Message(msg);
+            m.destinationName = BEMFA_UID + "/" + topic;
+            client.send(m);
+            alert("指令已发送");
         }
     </script>
 </body>

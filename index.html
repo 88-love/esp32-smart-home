@@ -153,13 +153,12 @@
     <!-- 引入MQTT库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/mqttws31.min.js"></script>
     <script>
-        // ========== 请修改为你自己的巴法云UID ==========
+        // 你的巴法云UID，直接填好了
         const BEMFA_UID = "2426cc5615e7463ba3d4ec3640ef2c49";
-        // ==============================================
 
         // 随机生成客户端ID，避免重复
         const clientId = "web_" + Math.random().toString(36).substr(2, 10);
-        // 巴法云MQTT WebSocket地址
+        // 巴法云MQTT WebSocket地址（最新可用）
         const host = "bemfa.com";
         const port = 9504;
         const client = new Paho.MQTT.Client(host, port, clientId);
@@ -176,13 +175,12 @@
             }
         }
 
-        // 收到消息回调
+        // 收到消息回调，按你的设备名匹配
         client.onMessageArrived = function (msg) {
             const topic = msg.destinationName;
             const payload = msg.payloadString;
             console.log("收到消息:", topic, payload);
 
-            // 更新传感器数据
             if (topic === `${BEMFA_UID}/temp004`) {
                 document.getElementById("temp").innerText = `${payload}°C`;
                 document.getElementById("temp").style.color = "#1677ff";
@@ -208,6 +206,16 @@
             onFailure: function (e) {
                 console.error("连接失败:", e);
                 updateConnStatus(false);
+                // 连接失败自动重试
+                setTimeout(() => {
+                    client.connect({
+                        onSuccess: function () {
+                            console.log("重连成功");
+                            updateConnStatus(true);
+                            client.subscribe(`${BEMFA_UID}/#`);
+                        }
+                    });
+                }, 3000);
             }
         });
 
